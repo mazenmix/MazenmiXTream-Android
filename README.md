@@ -1,5 +1,13 @@
 # MazenmiXTream 1.1.6
+<p align="center">
+  <a href="https://github.com/mazenmix/MazenmiXTream-Android/releases/latest">
+    <img src="https://img.shields.io/badge/Download-Latest_APK-8A2BE2?style=for-the-badge&logo=android&logoColor=white" alt="Download MazenmiXTream APK">
+  </a>
+</p>
 
+<p align="center">
+  Fast and lightweight IPTV player for Android, Android TV and Google TV.
+</p>
 MazenmiXTream is a lightweight MX IPTV player for Android phones, tablets, Android TV, Google TV, supported TCL/Hisense Android TVs, Xiaomi TV Box and Chromecast with Google TV.
 
 ## Compatibility
