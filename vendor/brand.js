@@ -1,0 +1,1 @@
+(function(){var b="Mazenmi",n="MazenmiXTream";document.title=n;window.MX_PUBLIC_NAME=n;var nodes=document.querySelectorAll('.brand');for(var i=0;i<nodes.length;i++)nodes[i].innerHTML=b+'<span>XTream</span>';})();
