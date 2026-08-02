@@ -1,4 +1,4 @@
-# MazenmiXTream 1.1.6 MX Media3 Fast-Zap
+# MazenmiXTream 1.1.6
 
 MazenmiXTream is a lightweight MX IPTV player for Android phones, tablets, Android TV, Google TV, supported TCL/Hisense Android TVs, Xiaomi TV Box and Chromecast with Google TV.
 
