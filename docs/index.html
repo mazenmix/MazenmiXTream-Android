@@ -13,66 +13,152 @@
   <meta name="robots" content="index, follow">
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       font-family: Arial, sans-serif;
       background: #0b0b0f;
       color: white;
       text-align: center;
-      padding: 60px 20px;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 60px 0 80px;
     }
 
     h1 {
-      font-size: 42px;
-      margin-bottom: 10px;
+      margin: 0 0 10px;
+      font-size: clamp(42px, 7vw, 72px);
+      letter-spacing: -2px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: clamp(28px, 4vw, 40px);
     }
 
     p {
+      max-width: 760px;
+      margin: 20px auto;
       color: #cccccc;
       font-size: 18px;
-      max-width: 700px;
-      margin: 20px auto;
-      line-height: 1.6;
+      line-height: 1.7;
     }
 
     .download {
       display: inline-block;
       margin-top: 25px;
       padding: 16px 28px;
+      border-radius: 12px;
       background: linear-gradient(135deg, #ff006e, #8a2be2);
       color: white;
-      text-decoration: none;
-      border-radius: 12px;
       font-size: 18px;
       font-weight: bold;
+      text-decoration: none;
+      box-shadow: 0 12px 35px rgba(180, 35, 210, 0.28);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
 
-    .features {
-      margin-top: 50px;
+    .download:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 42px rgba(180, 35, 210, 0.4);
+    }
+
+    .features,
+    .screenshots {
+      margin-top: 70px;
+    }
+
+    .screenshots-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 22px;
+      margin-top: 30px;
+    }
+
+    .screenshot-card {
+      display: block;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 18px;
+      background: #14141b;
+      box-shadow: 0 16px 45px rgba(0, 0, 0, 0.35);
+      transition: transform 0.22s ease, border-color 0.22s ease;
+    }
+
+    .screenshot-card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(255, 0, 110, 0.65);
+    }
+
+    .screenshot-card img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .hint {
+      margin-top: 18px;
+      color: #8f8f9f;
+      font-size: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .screenshots-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 
 <body>
-  <h1>MazenmiXTream</h1>
-
-  <p>
-    Fast and lightweight IPTV player for Android phones,
-    Android TV and Google TV.
-  </p>
-
-  <a class="download"
-     href="https://github.com/mazenmix/MazenmiXTream-Android/releases/latest">
-    Download Latest APK
-  </a>
-
-  <div class="features">
-    <h2>Main Features</h2>
+  <main class="page">
+    <h1>MazenmiXTream</h1>
 
     <p>
-      Xtream Codes API • M3U/M3U8 playlists • Live TV • Movies •
-      Series • EPG • Favorites • Parental Controls • Subtitles
+      Fast and lightweight IPTV player for Android phones,
+      Android TV and Google TV.
     </p>
-  </div>
+
+    <a class="download"
+       href="https://github.com/mazenmix/MazenmiXTream-Android/releases/latest">
+      Download Latest APK
+    </a>
+
+    <section class="features">
+      <h2>Main Features</h2>
+
+      <p>
+        Xtream Codes API • M3U/M3U8 playlists • Live TV • Movies •
+        Series • EPG • Favorites • Parental Controls • Subtitles
+      </p>
+    </section>
+
+    <section class="screenshots" aria-labelledby="screenshots-title">
+      <h2 id="screenshots-title">App Screenshots</h2>
+      <p>Explore the MazenmiXTream interface on Android TV and compatible devices.</p>
+
+      <div class="screenshots-grid">
+        <a class="screenshot-card" href="../screenshots/1.jpg" target="_blank" rel="noopener">
+          <img src="../screenshots/1.jpg" alt="MazenmiXTream app screenshot 1" loading="lazy">
+        </a>
+
+        <a class="screenshot-card" href="../screenshots/2.jpg" target="_blank" rel="noopener">
+          <img src="../screenshots/2.jpg" alt="MazenmiXTream app screenshot 2" loading="lazy">
+        </a>
+
+        <a class="screenshot-card" href="../screenshots/3.jpg" target="_blank" rel="noopener">
+          <img src="../screenshots/3.jpg" alt="MazenmiXTream app screenshot 3" loading="lazy">
+        </a>
+      </div>
+
+      <div class="hint">Click any screenshot to open it in full size.</div>
+    </section>
+  </main>
 </body>
 </html>
