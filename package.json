@@ -1,0 +1,26 @@
+{
+  "name": "mazenmixtream",
+  "version": "1.1.6",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/prepare.mjs && nitron build --target android && node scripts/native-build.mjs && nitron build --target android && npm run check",
+    "build:hamza": "MX_VARIANT=hamza npm run build",
+    "dev": "nitron dev --port 4173",
+    "check": "node scripts/check.mjs && node scripts/ui-test.mjs && node scripts/live-layout-test.mjs && node scripts/preview-recovery-test.mjs && node scripts/playback-fallback-test.mjs && node scripts/xtream-stream-test.mjs && node scripts/network-recovery-test.mjs && node scripts/cache-restart-test.mjs && node scripts/ui-test.mjs vendor/client.js && node scripts/live-layout-test.mjs vendor/client.js && node scripts/preview-recovery-test.mjs vendor/client.js && node scripts/playback-fallback-test.mjs vendor/client.js && node scripts/xtream-stream-test.mjs vendor/client.js && node scripts/network-recovery-test.mjs vendor/client.js && node scripts/cache-restart-test.mjs vendor/client.js"
+  },
+  "dependencies": {
+    "hls.js": "^1.6.10",
+    "mpegts.js": "^1.8.0",
+    "nitron": "1.3.0"
+  },
+  "devDependencies": {
+    "aaptjs3": "^2.0.2",
+    "core-js-bundle": "^3.49.0",
+    "esbuild": "^0.28.1",
+    "fake-indexeddb": "^6.2.4",
+    "jsdom": "^26.1.0",
+    "url-search-params-polyfill": "^8.2.5",
+    "whatwg-fetch": "^3.6.20"
+  }
+}

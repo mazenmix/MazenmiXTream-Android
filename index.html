@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#08090c">
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'self' data: blob: file:; script-src * 'self' 'unsafe-inline' 'unsafe-eval' data: blob: file:; style-src * 'self' 'unsafe-inline'; img-src * 'self' data: blob: file:; media-src * 'self' data: blob: file:; connect-src * 'self' data: blob: file: http: https:;">
+  <title>MazenmiXTream</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="boot" class="boot-screen" aria-live="polite">
+    <div class="boot-mark" aria-hidden="true"><span>MX</span></div>
+    <div class="brand boot-brand">Mazenmi<span>XTream</span></div>
+    <div class="boot-line"><i></i></div>
+    <small>SMART STREAMING • BEAUTIFULLY SIMPLE</small>
+  </div>
+
+  <div id="app" class="app-shell hidden">
+    <header class="topbar">
+      <button class="icon-button menu-button focusable" id="menuBtn" aria-label="Open menu">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <button class="brand brand-button focusable" id="brandBtn" aria-label="Home">Mazenmi<span>XTream</span></button>
+      <div id="serverChip" class="server-chip focusable hidden" role="button" tabindex="0" aria-label="Server information">
+        <i class="status-dot"></i>
+        <div><strong id="serverTitle"></strong><span id="serverMeta"></span></div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-button focusable" id="searchBtn" aria-label="Search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+        </button>
+        <button class="icon-button focusable" id="settingsBtn" aria-label="Settings">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <aside id="sidebar" class="sidebar">
+      <nav>
+        <button class="nav-item focusable active" data-view="home"><span class="nav-icon">⌂</span><span>Home</span></button>
+        <button class="nav-item focusable" data-view="live"><span class="nav-icon">●</span><span>Live TV</span></button>
+        <button class="nav-item focusable" data-view="movies"><span class="nav-icon">▶</span><span>Movies</span></button>
+        <button class="nav-item focusable" data-view="series"><span class="nav-icon">▤</span><span>Series</span></button>
+        <button class="nav-item focusable" data-view="favorites"><span class="nav-icon">♥</span><span>Favorites</span></button>
+      </nav>
+      <div class="side-spacer"></div>
+      <button class="nav-item focusable" id="manageBtn"><span class="nav-icon">＋</span><span>Manage playlists</span></button>
+      <button class="nav-item focusable" id="sideSettingsBtn"><span class="nav-icon">⚙</span><span>Settings</span></button>
+      <div class="side-version">v1.1.6 • MX Media3 Fast-Zap</div>
+    </aside>
+    <div id="scrim" class="scrim"></div>
+
+    <main id="content" class="content" tabindex="-1"></main>
+  </div>
+
+  <section id="playerScreen" class="player-screen hidden" aria-label="Video player">
+    <video id="video" autoplay playsinline webkit-playsinline preload="auto"></video>
+    <div id="videoShade" class="video-shade"></div>
+    <div id="playerLoading" class="player-loading hidden" aria-hidden="true"></div>
+    <div id="playerError" class="player-error hidden">
+      <strong>Stream could not start</strong><span id="playerErrorText"></span>
+      <div class="player-error-actions"><button id="retryBtn" class="primary-button focusable">Retry</button><button id="playerErrorBack" class="secondary-button focusable">Back to channels</button></div>
+    </div>
+    <div id="gestureIndicator" class="gesture-indicator hidden"><span></span><b></b></div>
+    <div id="channelSwitchFeedback" class="channel-switch-feedback hidden" aria-live="polite">
+      <div class="channel-switch-heading"><span id="channelSwitchArrow">┃▶</span><div><small id="channelSwitchDirection">NEXT CHANNEL</small><strong id="channelSwitchName"></strong></div></div>
+      <div id="channelSwitchRail" class="channel-switch-rail"></div>
+    </div>
+
+    <div id="playerChrome" class="player-chrome">
+      <div class="player-top">
+        <button id="playerBack" class="round-button player-close focusable" aria-label="Close player">×</button>
+        <div class="playing-title"><span id="playingType">LIVE</span><strong id="playingName"></strong><small id="playingGroup"></small></div>
+        <div class="player-quick-bar">
+          <button id="fullscreenBtn" class="player-tool focusable" aria-label="Fullscreen"><span>▱</span></button>
+          <button id="playerFavoriteBtn" class="player-tool focusable" aria-label="Favorite"><span>♡</span></button>
+          <button id="aspectBtn" class="player-tool focusable" aria-label="Aspect ratio"><span>▣</span></button>
+          <button id="muteBtn" class="player-tool focusable" aria-label="Volume"><span>◖</span><b>100</b></button>
+          <button id="subtitleBtn" class="player-tool focusable" aria-label="Subtitles"><span class="abc-icon">Abc</span></button>
+          <button id="playerLockBtn" class="player-tool focusable" aria-label="Lock controls"><span>🔒</span></button>
+          <button id="playerMore" class="player-tool focusable" aria-label="More options"><span>•••</span></button>
+        </div>
+      </div>
+      <div class="player-center-controls">
+        <button id="prevBtn" class="player-action channel-nav-trigger" tabindex="-1" aria-hidden="true"><span>◀┃</span><small>PREVIOUS</small></button>
+        <button id="rewindBtn" class="player-action seek-action focusable"><span>↶</span><small>30 SEC</small></button>
+        <button id="playPauseBtn" class="play-button focusable" aria-label="Play or pause">▶</button>
+        <button id="forwardBtn" class="player-action seek-action focusable"><span>↷</span><small>30 SEC</small></button>
+        <button id="nextBtn" class="player-action channel-nav-trigger" tabindex="-1" aria-hidden="true"><span>┃▶</span><small>NEXT</small></button>
+      </div>
+      <div class="player-bottom">
+        <div id="timelineWrap" class="timeline-wrap">
+          <span id="currentTime">00:00</span>
+          <input id="timeline" class="timeline focusable" type="range" min="0" max="100" value="0" step="0.1" aria-label="Playback position">
+          <span id="duration">LIVE</span>
+        </div>
+        <div class="player-live-strip"><span>MX MEDIA3 LIVE</span><i><b></b></i><small>Persistent stream engine active</small></div>
+      </div>
+    </div>
+  </section>
+
+  <div id="modalRoot" class="modal-root hidden" role="dialog" aria-modal="true"></div>
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <script src="vendor/polyfills.js"></script>
+  <script src="vendor/brand.js"></script>
+  <script src="vendor/hls.min.js"></script>
+  <script src="vendor/mpegts.js"></script>
+  <script src="vendor/client.js"></script>
+</body>
+</html>
