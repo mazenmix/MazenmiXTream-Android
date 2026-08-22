@@ -1,0 +1,61 @@
+html.tizen-tv, html.tizen-tv body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: none;
+}
+
+html.tizen-tv button,
+html.tizen-tv [role="button"],
+html.tizen-tv input {
+  outline: none;
+}
+
+html.tizen-tv button:focus,
+html.tizen-tv [role="button"]:focus,
+html.tizen-tv input:focus,
+html.tizen-tv .focusable:focus {
+  border-color: rgba(255, 63, 78, .96) !important;
+  box-shadow: 0 0 0 4px rgba(255, 45, 61, .34), 0 12px 35px rgba(0, 0, 0, .55) !important;
+  transform: scale(1.025);
+  z-index: 8;
+}
+
+html.tizen-tv .nav-item:focus,
+html.tizen-tv .live-category:focus,
+html.tizen-tv .live-channel-row:focus {
+  transform: translateX(5px) scale(1.01);
+}
+
+html.tizen-tv .content {
+  overscroll-behavior: none;
+}
+
+html.tizen-tv .topbar,
+html.tizen-tv .sidebar,
+html.tizen-tv .content {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html.tizen-tv input {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+html.tizen-tv .player-tool,
+html.tizen-tv .round-button,
+html.tizen-tv .player-action,
+html.tizen-tv .play-button {
+  min-width: 58px;
+  min-height: 58px;
+}
+
+@media (min-width: 1500px) {
+  html.tizen-tv .modal { max-height: 82vh; }
+  html.tizen-tv .modal-body { font-size: 17px; }
+  html.tizen-tv .field input { min-height: 58px; font-size: 18px; }
+  html.tizen-tv .primary-button,
+  html.tizen-tv .secondary-button,
+  html.tizen-tv .danger-button { min-height: 58px; font-size: 15px; }
+}

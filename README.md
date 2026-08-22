@@ -6,9 +6,9 @@
 </p>
 
 <p align="center">
-  Fast and lightweight IPTV player for Android, Android TV and Google TV.
+  Fast and lightweight IPTV player for Android, Google TV and Samsung Tizen TV.
 </p>
-MazenmiXTream is a lightweight MX IPTV player for Android phones, tablets, Android TV, Google TV, supported TCL/Hisense Android TVs, Xiaomi TV Box and Chromecast with Google TV.
+MazenmiXTream is a lightweight MX IPTV player for Android phones, tablets, Android TV, Google TV, supported TCL/Hisense Android TVs, Xiaomi TV Box, Chromecast with Google TV, and modern Samsung Smart TVs through the included Tizen project.
 
 ## Compatibility
 
@@ -79,6 +79,16 @@ npm run build:hamza
 
 The installable APK is created at `dist/app.apk`. `build:hamza` uses the separate `com.hamzaxtream.mx` package and HamzaXTream branding while keeping the same features. The build performs static checks, phone UI-flow tests, landscape TV preview/debounce tests, packaged-bundle tests, Android resource compilation, native Java compilation, DEX generation and APK signing.
 
+### Samsung Smart TV (Tizen 5.0+)
+
+```bash
+npm install
+npm run build:tizen
+npm run check:tizen
+```
+
+The command creates an importable Tizen Studio project and ZIP in `dist-tizen`. Samsung playback uses the hardware-accelerated AVPlay API, remote-control navigation, Channel Up/Down fast switching, TV Back behavior and a 1080p television focus layout. The Android APK build remains unchanged. A Samsung TV author/distributor certificate profile is required to sign the final installable WGT; see `tizen/README.md`.
+
 ## Privacy
 
-Playlist credentials, settings, favorites and parental controls are stored locally on the Android device. No analytics or advertising SDK is included.
+Playlist credentials, settings, favorites and parental controls are stored locally on the Android or Samsung TV device. No analytics or advertising SDK is included.

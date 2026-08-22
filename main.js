@@ -18,6 +18,8 @@
   const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[c]));
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const nativeEngineName = () => String(window.MazenPlatform?.playerName || "Android native");
+  const deviceLabel = () => String(window.MazenPlatform?.deviceLabel || "device").toLowerCase();
 
   const defaults = {
     playlists: [],
@@ -554,7 +556,7 @@
 
   function friendlyNetworkError(error) {
     const message = String(error?.message || error || "Could not load playlist");
-    if (/failed to fetch|networkerror|aborterror|signal.*abort|abort.*signal|aborted without reason|timed?\s*out|http (408|425|429|5\d\d)/i.test(message)) return "The IPTV server response was interrupted. The app retried using both Android native and direct connections; check that this phone can reach the server, then try again.";
+    if (/failed to fetch|networkerror|aborterror|signal.*abort|abort.*signal|aborted without reason|timed?\s*out|http (408|425|429|5\d\d)/i.test(message)) return `The IPTV server response was interrupted. The app retried using both ${nativeEngineName()} and direct connections; check that this ${deviceLabel()} can reach the server, then try again.`;
     return message;
   }
 
@@ -1146,7 +1148,7 @@
   }
 
   function livePreviewSupported() {
-    return innerWidth >= 900 && innerWidth > innerHeight && androidPlayerAvailable() && typeof window.MazenPlayer.setViewport === "function";
+    return innerWidth >= 900 && innerWidth > innerHeight && androidPlayerAvailable() && typeof window.MazenPlayer.setViewport === "function" && window.MazenPlayer.supportsMutedPreview !== false;
   }
 
   function scheduleLivePreview(item, delay = 300) {
@@ -1789,7 +1791,7 @@
     } else if (type === "ended") {
       if (currentItem.kind !== "live") playNeighbor(1);
     } else if (type === "error" || type === "stalled") {
-      fallbackPlayback(token, attempt, detail || "Android native playback failed");
+      fallbackPlayback(token, attempt, detail || `${nativeEngineName()} playback failed`);
     }
   }
 
@@ -2158,7 +2160,7 @@
     video.addEventListener("error", () => {
       if (!playbackEngine || playbackEngine.type !== "native" || !currentItem) return;
       const code = video.error?.code;
-      fallbackPlayback(playbackToken, playbackAttempt, code === 4 ? "Stream format is not supported by this mode" : "Android playback failed");
+      fallbackPlayback(playbackToken, playbackAttempt, code === 4 ? "Stream format is not supported by this mode" : `${nativeEngineName()} playback failed`);
     });
 
     el("playerScreen").addEventListener("click", (event) => {
@@ -2250,17 +2252,28 @@
   }
 
   function handleKeys(event) {
-    if (event.key === "Escape" || event.key === "Backspace" || event.keyCode === 4) {
+    const keyCode = Number(event.keyCode || event.which || 0);
+    if (event.key === "Escape" || event.key === "Backspace" || keyCode === 4 || keyCode === 10009) {
       if (!el("modalRoot").classList.contains("hidden")) { event.preventDefault(); closeModal(); return; }
       if (!el("playerScreen").classList.contains("hidden")) { event.preventDefault(); closePlayer(); return; }
       if (el("sidebar").classList.contains("open")) { event.preventDefault(); closeSidebar(); return; }
+      if (keyCode === 10009 && window.tizen?.application) {
+        event.preventDefault();
+        try { window.tizen.application.getCurrentApplication().exit(); } catch (_) {}
+        return;
+      }
     }
     if (!el("playerScreen").classList.contains("hidden")) {
-      if (event.key === "MediaPlayPause" || event.key === " ") { event.preventDefault(); el("playPauseBtn").click(); }
-      if (currentItem?.kind === "live" && !isControlFocused() && ["ArrowLeft", "ChannelDown", "MediaTrackPrevious", "PageDown"].includes(event.key)) { event.preventDefault(); playNeighbor(-1); return; }
-      if (currentItem?.kind === "live" && !isControlFocused() && ["ArrowRight", "ChannelUp", "MediaTrackNext", "PageUp"].includes(event.key)) { event.preventDefault(); playNeighbor(1); return; }
+      if (event.key === "MediaStop" || keyCode === 413) { event.preventDefault(); closePlayer(); return; }
+      if (event.key === "MediaPlay" || keyCode === 415) { event.preventDefault(); if (playerIsPaused()) el("playPauseBtn").click(); }
+      else if (event.key === "MediaPause" || keyCode === 19) { event.preventDefault(); if (!playerIsPaused()) el("playPauseBtn").click(); }
+      else if (event.key === "MediaPlayPause" || event.key === " " || keyCode === 10252) { event.preventDefault(); el("playPauseBtn").click(); }
+      if (currentItem?.kind === "live" && !isControlFocused() && (["ArrowLeft", "ChannelDown", "MediaTrackPrevious", "PageDown"].includes(event.key) || [428, 10232].includes(keyCode))) { event.preventDefault(); playNeighbor(-1); return; }
+      if (currentItem?.kind === "live" && !isControlFocused() && (["ArrowRight", "ChannelUp", "MediaTrackNext", "PageUp"].includes(event.key) || [427, 10233].includes(keyCode))) { event.preventDefault(); playNeighbor(1); return; }
       if (event.key === "ArrowLeft" && currentItem?.kind !== "live" && !isControlFocused()) { event.preventDefault(); el("rewindBtn").click(); }
       if (event.key === "ArrowRight" && currentItem?.kind !== "live" && !isControlFocused()) { event.preventDefault(); el("forwardBtn").click(); }
+      if (keyCode === 403) { event.preventDefault(); el("playerFavoriteBtn").click(); }
+      if (keyCode === 406) { event.preventDefault(); el("aspectBtn").click(); }
       showControls();
     }
     if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(event.key) && !isTextInput(document.activeElement)) moveFocus(event);
