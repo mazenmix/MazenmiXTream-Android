@@ -59,6 +59,116 @@ if (filterSource.includes(localIdOnlyBlock)) {
   throw new Error(`Unexpected local-ID filter shape in ${playlistFilterPath}`);
 }
 
+await replaceExact(
+  playlistFilterPath,
+  `.method public static sanitize(Landroid/content/Context;Lcom/shadeed/ibopro/models/AppInfoModel;)Lcom/shadeed/ibopro/models/AppInfoModel;
+    .locals 7`,
+  `.method public static sanitize(Landroid/content/Context;Lcom/shadeed/ibopro/models/AppInfoModel;)Lcom/shadeed/ibopro/models/AppInfoModel;
+    .locals 8`,
+);
+
+await replaceExact(
+  playlistFilterPath,
+  `    new-instance v3, Ljava/util/ArrayList;
+
+    invoke-direct {v3}, Ljava/util/ArrayList;-><init>()V
+
+    if-eqz v2, :cond_3`,
+  `    new-instance v3, Ljava/util/ArrayList;
+
+    invoke-direct {v3}, Ljava/util/ArrayList;-><init>()V
+
+    const/4 v7, 0x0
+
+    if-eqz v2, :cond_3`,
+);
+
+await replaceExact(
+  playlistFilterPath,
+  `    invoke-virtual {v5}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->getName()Ljava/lang/String;
+
+    move-result-object v6
+
+    invoke-static {v6}, Lcom/mazenmixtream/playlist/PlaylistStore;->isLegacyName(Ljava/lang/String;)Z
+
+    move-result v6
+
+    if-nez v6, :cond_2
+
+    invoke-interface {v3, v5}, Ljava/util/List;->add(Ljava/lang/Object;)Z`,
+  `    invoke-virtual {v5}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->getName()Ljava/lang/String;
+
+    move-result-object v6
+
+    if-eqz v6, :cond_2
+
+    invoke-virtual {v6}, Ljava/lang/String;->trim()Ljava/lang/String;
+
+    move-result-object v6
+
+    invoke-virtual {v6}, Ljava/lang/String;->toLowerCase()Ljava/lang/String;
+
+    move-result-object v6
+
+    const-string v1, "alfahad"
+
+    invoke-virtual {v6, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v1
+
+    if-nez v1, :cond_2
+
+    const-string v1, "falcon"
+
+    invoke-virtual {v6, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v1
+
+    if-nez v1, :cond_mazenmix_preset
+
+    const-string v1, "mazenmix"
+
+    invoke-virtual {v6, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v1
+
+    if-eqz v1, :cond_legacy_name
+
+    :cond_mazenmix_preset
+    if-nez v7, :cond_2
+
+    const/4 v7, 0x1
+
+    const-string v1, "MazenmiX"
+
+    invoke-virtual {v5, v1}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->setName(Ljava/lang/String;)V
+
+    const-string v1, "http://cf.business-cdn-8k.com/get.php?username=&password=&output=ts&type=m3u_plus"
+
+    invoke-virtual {v5, v1}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->setUrl(Ljava/lang/String;)V
+
+    const-string v1, "Xtream Codes"
+
+    invoke-virtual {v5, v1}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->setType(Ljava/lang/String;)V
+
+    goto :cond_add_playlist
+
+    :cond_legacy_name
+    invoke-virtual {v5}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->getName()Ljava/lang/String;
+
+    move-result-object v6
+
+    invoke-static {v6}, Lcom/mazenmixtream/playlist/PlaylistStore;->isLegacyName(Ljava/lang/String;)Z
+
+    move-result v6
+
+    if-nez v6, :cond_2
+
+    :cond_add_playlist
+
+    invoke-interface {v3, v5}, Ljava/util/List;->add(Ljava/lang/Object;)Z`,
+);
+
 const activityPath = "smali/com/shadeed/ibopro/activities/ChangePlaylistActivity.smali";
 await replaceExact(
   activityPath,
