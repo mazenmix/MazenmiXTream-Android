@@ -16,16 +16,27 @@ struct PlayerScreen: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            PlayerController(player: playerModel.player)
+            if playerModel.engine == .vlc {
+                VLCPlayerView(
+                    urls: playerModel.vlcURLs,
+                    shouldPlay: playerModel.vlcShouldPlay,
+                    onStarted: playerModel.vlcDidStart,
+                    onFailed: playerModel.vlcDidFail
+                )
+                .id(playerModel.vlcSessionID)
                 .ignoresSafeArea()
+            } else {
+                PlayerController(player: playerModel.player)
+                    .ignoresSafeArea()
+            }
 
             if playerModel.isConnecting {
                 ZStack {
                     Color.black.ignoresSafeArea()
                     VStack(spacing: 12) {
                         ProgressView().controlSize(.large)
-                        Text("Finding the best video stream…").font(.subheadline.weight(.semibold))
-                        Text("Trying Apple-compatible HLS first")
+                        Text("Opening video stream…").font(.subheadline.weight(.semibold))
+                        Text(playerModel.engine == .vlc ? "Using the compatibility video engine" : "Using Apple playback")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -60,6 +71,12 @@ struct PlayerScreen: View {
                 if playerModel.currentItem.kind == .live {
                     Button(action: previous) { Image(systemName: "backward.end.fill") }
                         .buttonStyle(PlayerCircleButtonStyle())
+                    if playerModel.engine == .vlc {
+                        Button(action: playerModel.toggleVLCPlayback) {
+                            Image(systemName: playerModel.vlcShouldPlay ? "pause.fill" : "play.fill")
+                        }
+                        .buttonStyle(PlayerCircleButtonStyle())
+                    }
                     Button(action: next) { Image(systemName: "forward.end.fill") }
                         .buttonStyle(PlayerCircleButtonStyle())
                 }

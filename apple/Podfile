@@ -1,0 +1,8 @@
+platform :ios, '17.0'
+
+source 'https://cdn.cocoapods.org/'
+
+target 'MazenmiXTream' do
+  use_frameworks!
+  pod 'MobileVLCKit', '3.4.0'
+end

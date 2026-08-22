@@ -130,6 +130,11 @@ struct PlaylistManagerView: View {
                     Text("MazenmiXTream stores playlists, favorites and cached catalogs on this device. It includes no analytics or advertising SDK.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
+                Section("Playback engine") {
+                    LabeledContent("Standard video", value: "Apple AVPlayer")
+                    LabeledContent("Compatibility video", value: "VideoLAN VLCKit")
+                    Link("VLCKit source and LGPL license", destination: URL(string: "https://github.com/videolan/vlckit")!)
+                }
             }
             .navigationTitle("Manage & Settings")
             .navigationBarTitleDisplayMode(.inline)

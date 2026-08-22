@@ -16,9 +16,10 @@ trap cleanup EXIT
 
 cd "${APPLE_ROOT}"
 xcodegen generate --spec project.yml
+pod install
 
 xcodebuild \
-  -project MazenmiXTream.xcodeproj \
+  -workspace MazenmiXTream.xcworkspace \
   -scheme MazenmiXTream \
   -configuration Release \
   -sdk iphoneos \

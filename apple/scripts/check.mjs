@@ -4,6 +4,7 @@ import path from "node:path";
 const apple = path.resolve(import.meta.dirname, "..");
 const required = [
   "Package.swift",
+  "Podfile",
   "project.yml",
   "MazenmiXTreamCore/Sources/MazenmiXTreamCore/Models.swift",
   "MazenmiXTreamCore/Sources/MazenmiXTreamCore/APIClient.swift",
@@ -18,6 +19,7 @@ const required = [
   "MazenmiXTreamApp/Views/RootView.swift",
   "MazenmiXTreamApp/Views/LiveBrowserView.swift",
   "MazenmiXTreamApp/Views/PlayerView.swift",
+  "MazenmiXTreamApp/Views/VLCPlayerView.swift",
   "MazenmiXTreamApp/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"
 ];
 
@@ -35,7 +37,8 @@ for (const marker of [
   "KeychainStore", "get_live_streams", "get_vod_streams", "get_series", "get_short_epg",
   "M3UParser", "playbackURLs", "hideAdult", "SeriesDetailView",
   "ChannelBrowseIndex", "Countries", "Categories", "Search channels",
-  "loadTracks(withMediaType: .video)", "returned audio only", "XtreamPlaybackPlanner"
+  "loadTracks(withMediaType: .video)", "XtreamPlaybackPlanner", "MobileVLCKit",
+  "VLCMediaPlayer", "PlaybackEngine", "activateVLC", "compatibility video engine"
 ]) {
   if (!swift.includes(marker)) throw new Error(`Apple implementation marker is missing: ${marker}`);
 }

@@ -69,7 +69,7 @@ On macOS, generate an arm64 iPhoneOS IPA that is intentionally left unsigned:
 bash apple/scripts/build-unsigned-ipa.sh
 ```
 
-The output is `apple/release/MazenmiXTream-iOS-v1.0.1-unsigned.ipa`. Before installation, MX Loader, Xcode or another authorized signing workflow must apply a valid certificate, provisioning profile and matching entitlements for the target device.
+The output is `apple/release/MazenmiXTream-iOS-v1.0.2-unsigned.ipa`. Before installation, MX Loader, Xcode or another authorized signing workflow must apply a valid certificate, provisioning profile and matching entitlements for the target device.
 
 ## Playback compatibility
 

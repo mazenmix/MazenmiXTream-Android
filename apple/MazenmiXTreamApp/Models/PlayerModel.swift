@@ -3,17 +3,25 @@ import Combine
 import Foundation
 import MazenmiXTreamCore
 
+enum PlaybackEngine {
+    case apple
+    case vlc
+}
+
 @MainActor
 final class PlayerModel: ObservableObject {
     let player = AVPlayer()
     @Published private(set) var currentItem: MediaItem
+    @Published private(set) var engine: PlaybackEngine = .apple
+    @Published private(set) var vlcURLs: [URL] = []
+    @Published private(set) var vlcSessionID = UUID()
+    @Published private(set) var vlcShouldPlay = true
     @Published private(set) var isConnecting = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var endedToken = 0
 
     private var candidateIndex = 0
     private var attemptGeneration = 0
-    private var sawAudioOnlyCandidate = false
     private var statusObservation: NSKeyValueObservation?
     private var timeoutTask: Task<Void, Never>?
     private var validationTask: Task<Void, Never>?
@@ -39,21 +47,19 @@ final class PlayerModel: ObservableObject {
 
     func start() {
         configureAudioSession()
-        candidateIndex = 0
-        sawAudioOnlyCandidate = false
-        playCandidate()
+        startCurrentItem()
     }
 
     func play(_ item: MediaItem) {
         currentItem = item
-        candidateIndex = 0
-        sawAudioOnlyCandidate = false
-        playCandidate()
+        startCurrentItem()
     }
 
     func stop() {
         attemptGeneration += 1
-        cancelAttempt()
+        cancelAppleAttempt()
+        vlcURLs = []
+        vlcSessionID = UUID()
         isConnecting = false
         player.pause()
         player.replaceCurrentItem(with: nil)
@@ -61,28 +67,81 @@ final class PlayerModel: ObservableObject {
     }
 
     func retry() {
-        candidateIndex = 0
-        sawAudioOnlyCandidate = false
-        playCandidate()
+        startCurrentItem()
     }
 
-    private func playCandidate() {
+    func toggleVLCPlayback() {
+        guard engine == .vlc else { return }
+        vlcShouldPlay.toggle()
+    }
+
+    func vlcDidStart() {
+        guard engine == .vlc else { return }
+        isConnecting = false
+        errorMessage = nil
+        vlcShouldPlay = true
+    }
+
+    func vlcDidFail(_ reason: String) {
+        guard engine == .vlc else { return }
+        isConnecting = false
+        errorMessage = reason
+    }
+
+    private func startCurrentItem() {
+        candidateIndex = 0
+        errorMessage = nil
+        if currentItem.kind == .live {
+            activateVLC()
+        } else {
+            engine = .apple
+            vlcURLs = []
+            playAppleCandidate()
+        }
+    }
+
+    private func activateVLC() {
+        attemptGeneration += 1
+        cancelAppleAttempt()
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+
+        let urls = currentItem.playbackURLs.compactMap { value -> URL? in
+            guard let url = URL(string: value), ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return nil }
+            return url
+        }
+        guard !urls.isEmpty else {
+            engine = .vlc
+            isConnecting = false
+            errorMessage = "This channel did not provide a valid stream address."
+            return
+        }
+
+        engine = .vlc
+        vlcURLs = urls
+        vlcShouldPlay = true
+        vlcSessionID = UUID()
+        isConnecting = true
+        errorMessage = nil
+    }
+
+    private func playAppleCandidate() {
         attemptGeneration += 1
         let generation = attemptGeneration
-        cancelAttempt()
+        cancelAppleAttempt()
         errorMessage = nil
 
         guard currentItem.playbackURLs.indices.contains(candidateIndex),
               let url = URL(string: currentItem.playbackURLs[candidateIndex]),
               ["http", "https"].contains(url.scheme?.lowercased() ?? "") else {
-            finishWithFailure(reason: nil)
+            activateVLC()
             return
         }
 
         isConnecting = true
         let asset = AVURLAsset(url: url)
         let playerItem = AVPlayerItem(asset: asset)
-        playerItem.preferredForwardBufferDuration = currentItem.kind == .live ? 2 : 8
+        playerItem.preferredForwardBufferDuration = 8
         statusObservation = playerItem.observe(\.status, options: [.initial, .new]) { [weak self, weak playerItem] observedItem, _ in
             Task { @MainActor in
                 guard let self, let playerItem, observedItem === playerItem,
@@ -92,7 +151,7 @@ final class PlayerModel: ObservableObject {
                 case .readyToPlay:
                     self.validateVideoTrack(for: playerItem, generation: generation)
                 case .failed:
-                    self.fallback(reason: observedItem.error?.localizedDescription, generation: generation)
+                    self.fallbackFromApple(generation: generation)
                 case .unknown:
                     break
                 @unknown default:
@@ -105,9 +164,9 @@ final class PlayerModel: ObservableObject {
         player.play()
 
         timeoutTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(currentItem.kind == .live ? 14 : 24))
+            try? await Task.sleep(for: .seconds(24))
             guard !Task.isCancelled else { return }
-            self?.fallback(reason: "Connection timed out", generation: generation)
+            self?.fallbackFromApple(generation: generation)
         }
     }
 
@@ -119,52 +178,30 @@ final class PlayerModel: ObservableObject {
                 let videoTracks = try await playerItem.asset.loadTracks(withMediaType: .video)
                 guard !Task.isCancelled, self.attemptGeneration == generation,
                       self.player.currentItem === playerItem else { return }
-
-                if !videoTracks.isEmpty || !self.requiresVideo {
+                if videoTracks.isEmpty {
+                    self.fallbackFromApple(generation: generation)
+                } else {
                     self.timeoutTask?.cancel()
                     self.isConnecting = false
-                } else {
-                    self.sawAudioOnlyCandidate = true
-                    self.fallback(reason: "The source returned audio without a video track.", generation: generation)
                 }
             } catch {
                 guard !Task.isCancelled else { return }
-                self.fallback(reason: error.localizedDescription, generation: generation)
+                self.fallbackFromApple(generation: generation)
             }
         }
     }
 
-    private var requiresVideo: Bool {
-        guard currentItem.kind == .live else { return true }
-        let value = "\(currentItem.name) \(currentItem.group)".folding(
-            options: [.caseInsensitive, .diacriticInsensitive],
-            locale: .current
-        )
-        let radioTerms = ["radio", " fm", "راديو", "اذاعة", "إذاعة"]
-        return !radioTerms.contains(where: value.localizedCaseInsensitiveContains)
-    }
-
-    private func fallback(reason: String?, generation: Int) {
+    private func fallbackFromApple(generation: Int) {
         guard attemptGeneration == generation else { return }
         candidateIndex += 1
         if currentItem.playbackURLs.indices.contains(candidateIndex) {
-            playCandidate()
+            playAppleCandidate()
         } else {
-            finishWithFailure(reason: reason)
+            activateVLC()
         }
     }
 
-    private func finishWithFailure(reason: String?) {
-        cancelAttempt()
-        isConnecting = false
-        if sawAudioOnlyCandidate {
-            errorMessage = "This channel returned audio only. Its video codec or stream format is not compatible with Apple playback."
-        } else {
-            errorMessage = reason ?? "This stream did not provide a supported HLS, MP4 or MOV video source."
-        }
-    }
-
-    private func cancelAttempt() {
+    private func cancelAppleAttempt() {
         timeoutTask?.cancel()
         validationTask?.cancel()
         timeoutTask = nil
