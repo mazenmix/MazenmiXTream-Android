@@ -196,28 +196,7 @@ await replaceExact(
     goto :cond_add_playlist
 
     :cond_check_protected
-    invoke-virtual {v5}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->getIs_protected()Ljava/lang/String;
-
-    move-result-object v6
-
-    const-string v1, "1"
-
-    invoke-virtual {v6, v1}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
-
-    move-result v6
-
-    if-nez v6, :cond_2
-
-    :cond_legacy_name
-    invoke-virtual {v5}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->getName()Ljava/lang/String;
-
-    move-result-object v6
-
-    invoke-static {v6}, Lcom/mazenmixtream/playlist/PlaylistStore;->isLegacyName(Ljava/lang/String;)Z
-
-    move-result v6
-
-    if-nez v6, :cond_2
+    goto :cond_add_playlist
 
     :cond_add_playlist
 
@@ -317,6 +296,75 @@ await replaceExact(
     move-result v0
 
     :goto_0`,
+);
+
+await replaceExact(
+  playlistFilterPath,
+  `    :cond_1
+    new-instance v1, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;`,
+  `    :cond_1
+    if-eqz p2, :cond_slot_id_resolved
+
+    invoke-virtual {p2}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v2
+
+    if-nez v2, :cond_slot_id_resolved
+
+    const/4 v2, 0x0
+
+    invoke-interface {v0}, Ljava/util/List;->size()I
+
+    move-result v3
+
+    :goto_find_slot_id
+    if-ge v2, v3, :cond_slot_id_resolved
+
+    invoke-interface {v0, v2}, Ljava/util/List;->get(I)Ljava/lang/Object;
+
+    move-result-object v4
+
+    check-cast v4, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;
+
+    invoke-virtual {v4}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->getId()Ljava/lang/String;
+
+    move-result-object v4
+
+    if-eqz v4, :cond_next_slot_id
+
+    invoke-virtual {v4, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v4
+
+    if-eqz v4, :cond_next_slot_id
+
+    move p5, v2
+
+    goto :cond_slot_id_resolved
+
+    :cond_next_slot_id
+    add-int/lit8 v2, v2, 0x1
+
+    goto :goto_find_slot_id
+
+    :cond_slot_id_resolved
+    new-instance v1, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;`,
+);
+
+await replaceExact(
+  playlistFilterPath,
+  `    invoke-static {p1}, Lcom/shadeed/ibopro/utils/Utils;->saveToFile(Lcom/shadeed/ibopro/models/AppInfoModel;)V
+
+    return-object p1
+.end method`,
+  `    invoke-static {p1}, Lcom/shadeed/ibopro/utils/Utils;->saveToFile(Lcom/shadeed/ibopro/models/AppInfoModel;)V
+
+    invoke-static {p0, p1}, Lcom/mazenmixtream/playlist/PlaylistStore;->sanitize(Landroid/content/Context;Lcom/shadeed/ibopro/models/AppInfoModel;)Lcom/shadeed/ibopro/models/AppInfoModel;
+
+    move-result-object p1
+
+    return-object p1
+.end method`,
 );
 
 const activityPath = "smali/com/shadeed/ibopro/activities/ChangePlaylistActivity.smali";
