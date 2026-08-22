@@ -170,6 +170,10 @@ await replaceExact(
 
     const/4 v7, 0x1
 
+    const-string v1, "playlist1"
+
+    invoke-virtual {v5, v1}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->setName(Ljava/lang/String;)V
+
     goto :cond_add_playlist
 
     :cond_mazenmix_preset
@@ -177,7 +181,7 @@ await replaceExact(
 
     const/4 v7, 0x1
 
-    const-string v1, "MazenmiX"
+    const-string v1, "playlist1"
 
     invoke-virtual {v5, v1}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->setName(Ljava/lang/String;)V
 
@@ -217,6 +221,14 @@ await replaceExact(
 
     :cond_add_playlist
 
+    invoke-interface {v3}, Ljava/util/List;->size()I
+
+    move-result v6
+
+    const/16 v1, 0xf
+
+    if-ge v6, v1, :cond_2
+
     invoke-interface {v3, v5}, Ljava/util/List;->add(Ljava/lang/Object;)Z`,
 );
 
@@ -225,19 +237,52 @@ await replaceExact(
   `    :cond_3
     invoke-virtual {p1, v3}, Lcom/shadeed/ibopro/models/AppInfoModel;->setResult(Ljava/util/List;)V`,
   `    :cond_3
-    if-nez v7, :cond_persist_sanitized
+    invoke-interface {v3}, Ljava/util/List;->size()I
+
+    move-result v6
+
+    :goto_fill_slots
+    const/16 v1, 0xf
+
+    if-ge v6, v1, :cond_persist_sanitized
 
     new-instance v5, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;
 
     invoke-direct {v5}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;-><init>()V
 
-    const-string v1, "local-mazenmix-default"
+    add-int/lit8 v4, v6, 0x1
 
-    invoke-virtual {v5, v1}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->setId(Ljava/lang/String;)V
+    new-instance v1, Ljava/lang/StringBuilder;
 
-    const-string v1, "MazenmiX"
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
 
-    invoke-virtual {v5, v1}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->setName(Ljava/lang/String;)V
+    const-string v2, "local-mx-slot-"
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v5, v2}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->setId(Ljava/lang/String;)V
+
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v2, "playlist"
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v5, v2}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->setName(Ljava/lang/String;)V
 
     const-string v1, "http://cf.business-cdn-8k.com/get.php?username=&password=&output=ts&type=m3u_plus"
 
@@ -249,8 +294,29 @@ await replaceExact(
 
     invoke-interface {v3, v5}, Ljava/util/List;->add(Ljava/lang/Object;)Z
 
+    add-int/lit8 v6, v6, 0x1
+
+    goto :goto_fill_slots
+
     :cond_persist_sanitized
     invoke-virtual {p1, v3}, Lcom/shadeed/ibopro/models/AppInfoModel;->setResult(Ljava/util/List;)V`,
+);
+
+const adapterPath = "smali/com/shadeed/ibopro/adapter/PortalRecyclerAdapter.smali";
+await replaceExact(
+  adapterPath,
+  `    invoke-interface {v0}, Ljava/util/List;->size()I
+
+    move-result v0
+
+    add-int/lit8 v0, v0, 0x1
+
+    :goto_0`,
+  `    invoke-interface {v0}, Ljava/util/List;->size()I
+
+    move-result v0
+
+    :goto_0`,
 );
 
 const activityPath = "smali/com/shadeed/ibopro/activities/ChangePlaylistActivity.smali";
