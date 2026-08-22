@@ -24,6 +24,7 @@ It applies only to the uploaded legacy/native MX TV APK identified below.
    - Username: empty
    - Password: empty
    - Type: `Xtream Codes`
+5. The first preset cleanup treated an already-renamed `MazenmiX` entry like a fresh `Falcon` on every reload. That reset newly entered Xtream credentials to blanks and could leave the manager empty when the stored model was unavailable. The migration now runs only for `Falcon`; an existing `MazenmiX` entry is preserved byte-for-byte, including its credential-bearing URL. A missing/corrupt playlist model is recovered with one editable `MazenmiX` placeholder instead of an empty manager.
 
 ## Apply
 
@@ -44,4 +45,6 @@ The patcher refuses a decoded APK unless `versionCode` is `41` and `versionName`
 - `upsert` appends when the position is invalid/new, then persists to SharedPreferences and the local backup file.
 - Existing non-protected user playlists survive activity reload and application restart.
 - `AlFahad` cannot return from cached data, while the single `Falcon` preset is persisted as `MazenmiX` with the requested blank credentials.
+- Editing `MazenmiX` preserves the exact saved server URL, username, and password across dialog dismissal, activity refresh, and application restart.
+- Null or empty stored playlist state self-recovers to one `MazenmiX` card plus the Add Playlist card.
 - Live TV, VOD, Series, playback, EPG, and sync code are untouched.
