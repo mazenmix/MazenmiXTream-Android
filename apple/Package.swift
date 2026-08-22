@@ -4,7 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "MazenmiXTreamCore",
-    platforms: [.iOS(.v17)],
+    platforms: [.iOS(.v17), .macOS(.v13)],
     products: [
         .library(name: "MazenmiXTreamCore", targets: ["MazenmiXTreamCore"])
     ],

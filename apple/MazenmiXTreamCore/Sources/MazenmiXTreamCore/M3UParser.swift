@@ -127,3 +127,9 @@ private extension Optional where Wrapped == String {
         return self
     }
 }
+
+private extension String {
+    var nonEmpty: String? {
+        trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self
+    }
+}
