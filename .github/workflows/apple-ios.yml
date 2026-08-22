@@ -1,0 +1,31 @@
+name: Apple iPhone and iPad
+
+on:
+  pull_request:
+    paths:
+      - "apple/**"
+      - ".github/workflows/apple-ios.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apple/**"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: apple
+        run: xcodegen generate
+      - name: Test core package
+        working-directory: apple
+        run: swift test
+      - name: Build iPhone and iPad simulator app
+        working-directory: apple
+        run: >-
+          xcodebuild -project MazenmiXTream.xcodeproj -scheme MazenmiXTream
+          -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO build

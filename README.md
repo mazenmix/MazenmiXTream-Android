@@ -6,9 +6,9 @@
 </p>
 
 <p align="center">
-  Fast and lightweight IPTV player for Android, Android TV and Google TV.
+  Fast and lightweight IPTV player for Android, Android TV, Google TV, iPhone and iPad.
 </p>
-MazenmiXTream is a lightweight MX IPTV player for Android phones, tablets, Android TV, Google TV, supported TCL/Hisense Android TVs, Xiaomi TV Box and Chromecast with Google TV.
+MazenmiXTream is a lightweight MX IPTV player for Android phones, tablets and televisions. The repository also contains a native SwiftUI edition designed for iPhone and iPad.
 
 ## Compatibility
 
@@ -79,6 +79,22 @@ npm run build:hamza
 
 The installable APK is created at `dist/app.apk`. `build:hamza` uses the separate `com.hamzaxtream.mx` package and HamzaXTream branding while keeping the same features. The build performs static checks, phone UI-flow tests, landscape TV preview/debounce tests, packaged-bundle tests, Android resource compilation, native Java compilation, DEX generation and APK signing.
 
+### Apple iPhone and iPad
+
+The `apple` directory contains a native iOS/iPadOS 17+ SwiftUI app. It uses a tab interface on iPhone, a split-view interface on iPad, AVPlayer/AVKit playback with Picture in Picture, Xtream Codes, M3U/M3U8, EPG, series/episodes, favorites, local catalog caching and Keychain-backed credentials.
+
+```bash
+npm run check:apple
+npm run build:apple
+
+# On macOS with Xcode and XcodeGen installed
+cd apple
+xcodegen generate
+open MazenmiXTream.xcodeproj
+```
+
+The portable source ZIP is created at `dist-apple/MazenmiXTream-iPhone-iPad-Source.zip`. Building for a physical device requires selecting an Apple Development Team and a unique Bundle ID in Xcode. See `apple/README.md` for simulator, device, archive, signing and media-format notes.
+
 ## Privacy
 
-Playlist credentials, settings, favorites and parental controls are stored locally on the Android device. No analytics or advertising SDK is included.
+Playlist credentials, settings, favorites and parental controls are stored locally on the device. The Apple edition stores Xtream credentials in Keychain and keeps them out of the catalog cache. No analytics or advertising SDK is included.
