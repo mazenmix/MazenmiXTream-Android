@@ -27,6 +27,8 @@ It applies only to the uploaded legacy/native MX TV APK identified below.
 5. The first preset cleanup treated an already-renamed `MazenmiX` entry like a fresh `Falcon` on every reload. That reset newly entered Xtream credentials to blanks and could leave the manager empty when the stored model was unavailable. The migration now runs only for `Falcon`; an existing `MazenmiX` entry is preserved byte-for-byte, including its credential-bearing URL. A missing/corrupt playlist model is recovered with one editable `MazenmiX` placeholder instead of an empty manager.
 6. The manager now uses a fixed bank of 15 editable slots, named `playlist1` through `playlist15`. Existing `MazenmiX` credentials migrate into `playlist1`; missing slots are generated locally with the requested server domain and blank credentials. The adapter reports exactly the playlist count, so the Add Playlist row is not rendered and a sixteenth slot cannot be created from the manager.
 7. Update previously trusted the RecyclerView position passed into the edit dialog. If that position became stale, the edited record could be appended as item 16 and then removed by the 15-slot cap. Update now resolves the target by its stable playlist ID before replacing it. The save path immediately sanitizes the just-written model, and fixed-slot entries are no longer dropped because of `is_protected` or legacy-name filters.
+8. Cached/provider playlists such as `Family 4K`, `8K`, `4K`, and `V 4K` could occupy the first fixed slots because the sanitizer retained arbitrary non-local rows. The sanitizer now reconstructs the manager from the canonical IDs `local-mx-slot-1` through `local-mx-slot-15`, preserves only edits belonging to those IDs, and generates any missing slot in its correct position.
+9. Xtream credentials were serialized and later parsed with positional `split("&")` / `split("=")` logic. Repeated `get.php` paths, reordered query parameters, and credential characters such as `&`, `=`, `+`, `%`, or spaces could therefore produce a false username/password error. The server input is now reduced to one origin, credential values are URI-encoded once, and login reads the named `username` and `password` query parameters through Android URI parsing before calling `player_api.php`.
 
 ## Apply
 
@@ -43,6 +45,7 @@ The patcher refuses a decoded APK unless `versionCode` is `41` and `versionName`
 ## Verification invariants
 
 - The manager renders exactly 15 editable playlist cards and no Add Playlist card.
+- The cards are always ordered by canonical IDs `local-mx-slot-1` through `local-mx-slot-15`; arbitrary provider/cached rows cannot re-enter the manager.
 - The adapter never exposes a sixteenth row.
 - `upsert` replaces the selected slot and persists it to SharedPreferences and the local backup file.
 - `upsert` resolves the selected slot by stable ID; a stale adapter position cannot append-and-drop the update.
@@ -50,5 +53,6 @@ The patcher refuses a decoded APK unless `versionCode` is `41` and `versionName`
 - `AlFahad` cannot return; `Falcon`/`MazenmiX` migrates once into `playlist1` without losing its credential-bearing URL.
 - Editing any of the 15 slots preserves the exact saved server URL, username, and password across dialog dismissal, activity refresh, and application restart.
 - Custom slot names are preserved and are not removed by protected/legacy-name filtering.
+- Xtream server inputs containing a trailing slash, a complete `get.php` URL, or encoded credential characters normalize to one valid URL and authenticate with the decoded credential values.
 - Null or empty stored playlist state self-recovers to `playlist1` through `playlist15`.
 - Live TV, VOD, Series, playback, EPG, and sync code are untouched.
