@@ -1,4 +1,5 @@
 import Foundation
+import MazenmiXTreamCore
 
 actor CatalogCache {
     private let folder: URL

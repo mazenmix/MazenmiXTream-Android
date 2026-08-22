@@ -1,4 +1,5 @@
 import Foundation
+import MazenmiXTreamCore
 import Security
 
 enum KeychainStore {
