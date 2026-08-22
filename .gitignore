@@ -1,0 +1,5 @@
+dist-apple/
+apple/.build/
+apple/DerivedData/
+apple/MazenmiXTream.xcodeproj/xcuserdata/
+*.xcuserstate

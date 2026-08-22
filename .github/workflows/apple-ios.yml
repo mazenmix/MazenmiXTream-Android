@@ -1,0 +1,42 @@
+name: Apple iPhone and iPad
+
+on:
+  pull_request:
+    paths:
+      - "apple/**"
+      - ".github/workflows/apple-ios.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apple/**"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: brew install xcodegen cocoapods
+      - name: Generate Xcode project
+        working-directory: apple
+        run: xcodegen generate && pod install
+      - name: Test core package
+        working-directory: apple
+        run: swift test
+      - name: Build iPhone and iPad simulator app
+        working-directory: apple
+        run: >-
+          xcodebuild -workspace MazenmiXTream.xcworkspace -scheme MazenmiXTream
+          -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO build
+      - name: Build unsigned iPhoneOS IPA
+        run: bash apple/scripts/build-unsigned-ipa.sh "$RUNNER_TEMP/mazenmixtream-release"
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: MazenmiXTream-iOS-v1.0.2-unsigned
+          path: |
+            ${{ runner.temp }}/mazenmixtream-release/MazenmiXTream-iOS-v1.0.2-unsigned.ipa
+            ${{ runner.temp }}/mazenmixtream-release/MazenmiXTream-iOS-v1.0.2-unsigned.ipa.sha256
+          if-no-files-found: error
+          retention-days: 30
