@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns:tizen="http://tizen.org/ns/widgets" xmlns="http://www.w3.org/ns/widgets" id="http://mazenmix.com/MazenmiXTream" version="1.1.6" viewmodes="maximized">
+    <access origin="*" subdomains="true" />
+    <tizen:application id="mxstream01.MazenmiXTream" package="mxstream01" required_version="5.0" />
+    <content src="index.html" />
+    <feature name="http://tizen.org/feature/screen.size.all" />
+    <feature name="http://tizen.org/feature/tv.inputdevice" />
+    <icon src="icon.png" />
+    <name>MazenmiXTream</name>
+    <tizen:privilege name="http://tizen.org/privilege/internet" />
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice" />
+    <tizen:profile name="tv-samsung" />
+    <tizen:setting screen-orientation="landscape" pointing-device-support="disable" background-support="disable" encryption="disable" hwkey-event="enable" />
+</widget>

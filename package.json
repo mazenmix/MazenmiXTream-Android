@@ -6,7 +6,9 @@
   "scripts": {
     "build": "node scripts/prepare.mjs && nitron build --target android && node scripts/native-build.mjs && nitron build --target android && npm run check",
     "build:hamza": "MX_VARIANT=hamza npm run build",
+    "build:tizen": "node scripts/tizen-build.mjs",
     "dev": "nitron dev --port 4173",
+    "check:tizen": "node scripts/tizen-player-test.mjs && node scripts/tizen-build-test.mjs",
     "check": "node scripts/check.mjs && node scripts/ui-test.mjs && node scripts/live-layout-test.mjs && node scripts/preview-recovery-test.mjs && node scripts/playback-fallback-test.mjs && node scripts/xtream-stream-test.mjs && node scripts/network-recovery-test.mjs && node scripts/cache-restart-test.mjs && node scripts/ui-test.mjs vendor/client.js && node scripts/live-layout-test.mjs vendor/client.js && node scripts/preview-recovery-test.mjs vendor/client.js && node scripts/playback-fallback-test.mjs vendor/client.js && node scripts/xtream-stream-test.mjs vendor/client.js && node scripts/network-recovery-test.mjs vendor/client.js && node scripts/cache-restart-test.mjs vendor/client.js"
   },
   "dependencies": {
