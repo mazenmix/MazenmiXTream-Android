@@ -69,6 +69,26 @@ await replaceExact(
 
 await replaceExact(
   playlistFilterPath,
+  `    .locals 8
+
+    if-eqz p1, :cond_5
+
+    new-instance v0, Lcom/shadeed/ibopro/helper/PreferenceHelper;`,
+  `    .locals 8
+
+    if-nez p1, :cond_input_ready
+
+    new-instance p1, Lcom/shadeed/ibopro/models/AppInfoModel;
+
+    invoke-direct {p1}, Lcom/shadeed/ibopro/models/AppInfoModel;-><init>()V
+
+    :cond_input_ready
+
+    new-instance v0, Lcom/shadeed/ibopro/helper/PreferenceHelper;`,
+);
+
+await replaceExact(
+  playlistFilterPath,
   `    new-instance v3, Ljava/util/ArrayList;
 
     invoke-direct {v3}, Ljava/util/ArrayList;-><init>()V
@@ -85,7 +105,19 @@ await replaceExact(
 
 await replaceExact(
   playlistFilterPath,
-  `    invoke-virtual {v5}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->getName()Ljava/lang/String;
+  `    invoke-virtual {v5}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->getIs_protected()Ljava/lang/String;
+
+    move-result-object v6
+
+    const-string v1, "1"
+
+    invoke-virtual {v6, v1}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+
+    move-result v6
+
+    if-nez v6, :cond_2
+
+    invoke-virtual {v5}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->getName()Ljava/lang/String;
 
     move-result-object v6
 
@@ -132,7 +164,13 @@ await replaceExact(
 
     move-result v1
 
-    if-eqz v1, :cond_legacy_name
+    if-eqz v1, :cond_check_protected
+
+    if-nez v7, :cond_2
+
+    const/4 v7, 0x1
+
+    goto :cond_add_playlist
 
     :cond_mazenmix_preset
     if-nez v7, :cond_2
@@ -153,6 +191,19 @@ await replaceExact(
 
     goto :cond_add_playlist
 
+    :cond_check_protected
+    invoke-virtual {v5}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->getIs_protected()Ljava/lang/String;
+
+    move-result-object v6
+
+    const-string v1, "1"
+
+    invoke-virtual {v6, v1}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
+
+    move-result v6
+
+    if-nez v6, :cond_2
+
     :cond_legacy_name
     invoke-virtual {v5}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->getName()Ljava/lang/String;
 
@@ -167,6 +218,39 @@ await replaceExact(
     :cond_add_playlist
 
     invoke-interface {v3, v5}, Ljava/util/List;->add(Ljava/lang/Object;)Z`,
+);
+
+await replaceExact(
+  playlistFilterPath,
+  `    :cond_3
+    invoke-virtual {p1, v3}, Lcom/shadeed/ibopro/models/AppInfoModel;->setResult(Ljava/util/List;)V`,
+  `    :cond_3
+    if-nez v7, :cond_persist_sanitized
+
+    new-instance v5, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;
+
+    invoke-direct {v5}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;-><init>()V
+
+    const-string v1, "local-mazenmix-default"
+
+    invoke-virtual {v5, v1}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->setId(Ljava/lang/String;)V
+
+    const-string v1, "MazenmiX"
+
+    invoke-virtual {v5, v1}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->setName(Ljava/lang/String;)V
+
+    const-string v1, "http://cf.business-cdn-8k.com/get.php?username=&password=&output=ts&type=m3u_plus"
+
+    invoke-virtual {v5, v1}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->setUrl(Ljava/lang/String;)V
+
+    const-string v1, "Xtream Codes"
+
+    invoke-virtual {v5, v1}, Lcom/shadeed/ibopro/models/AppInfoModel$UrlModel;->setType(Ljava/lang/String;)V
+
+    invoke-interface {v3, v5}, Ljava/util/List;->add(Ljava/lang/Object;)Z
+
+    :cond_persist_sanitized
+    invoke-virtual {p1, v3}, Lcom/shadeed/ibopro/models/AppInfoModel;->setResult(Ljava/util/List;)V`,
 );
 
 const activityPath = "smali/com/shadeed/ibopro/activities/ChangePlaylistActivity.smali";
