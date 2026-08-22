@@ -61,6 +61,16 @@ xcodebuild \
 
 A signed IPA cannot be generated without the intended team's certificate and provisioning profile. Keep automatic signing enabled unless the release workflow specifically requires manual profiles.
 
+## Unsigned IPA for MX Loader or another authorized signer
+
+On macOS, generate an arm64 iPhoneOS IPA that is intentionally left unsigned:
+
+```bash
+bash apple/scripts/build-unsigned-ipa.sh
+```
+
+The output is `apple/release/MazenmiXTream-iOS-v1.0.0-unsigned.ipa`. Before installation, MX Loader, Xcode or another authorized signing workflow must apply a valid certificate, provisioning profile and matching entitlements for the target device.
+
 ## Playback compatibility
 
 AVPlayer is strongest with HLS (`.m3u8`), MP4/M4V and MOV using Apple-supported codecs. The loader prefers an Xtream HLS URL when the account reports it and falls back through the server's reported URLs. Standalone MPEG-TS, MKV, AVI, WebM or unsupported audio/video codecs may fail even when the URL itself is valid.

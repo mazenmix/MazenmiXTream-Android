@@ -29,3 +29,14 @@ jobs:
           xcodebuild -project MazenmiXTream.xcodeproj -scheme MazenmiXTream
           -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
           CODE_SIGNING_ALLOWED=NO build
+      - name: Build unsigned iPhoneOS IPA
+        run: bash apple/scripts/build-unsigned-ipa.sh "$RUNNER_TEMP/mazenmixtream-release"
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: MazenmiXTream-iOS-v1.0.0-unsigned
+          path: |
+            ${{ runner.temp }}/mazenmixtream-release/MazenmiXTream-iOS-v1.0.0-unsigned.ipa
+            ${{ runner.temp }}/mazenmixtream-release/MazenmiXTream-iOS-v1.0.0-unsigned.ipa.sha256
+          if-no-files-found: error
+          retention-days: 30
