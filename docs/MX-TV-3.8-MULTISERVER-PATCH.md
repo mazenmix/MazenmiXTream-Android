@@ -25,6 +25,7 @@ It applies only to the uploaded legacy/native MX TV APK identified below.
    - Password: empty
    - Type: `Xtream Codes`
 5. The first preset cleanup treated an already-renamed `MazenmiX` entry like a fresh `Falcon` on every reload. That reset newly entered Xtream credentials to blanks and could leave the manager empty when the stored model was unavailable. The migration now runs only for `Falcon`; an existing `MazenmiX` entry is preserved byte-for-byte, including its credential-bearing URL. A missing/corrupt playlist model is recovered with one editable `MazenmiX` placeholder instead of an empty manager.
+6. The manager now uses a fixed bank of 15 editable slots, named `playlist1` through `playlist15`. Existing `MazenmiX` credentials migrate into `playlist1`; missing slots are generated locally with the requested server domain and blank credentials. The adapter reports exactly the playlist count, so the Add Playlist row is not rendered and a sixteenth slot cannot be created from the manager.
 
 ## Apply
 
@@ -40,11 +41,11 @@ The patcher refuses a decoded APK unless `versionCode` is `41` and `versionName`
 
 ## Verification invariants
 
-- The add card is visible in default, hdpi, tvdpi, xhdpi, xxhdpi, and xxxhdpi resources.
-- Clicking the add row always opens a new playlist, never Update mode.
-- `upsert` appends when the position is invalid/new, then persists to SharedPreferences and the local backup file.
+- The manager renders exactly 15 editable playlist cards and no Add Playlist card.
+- The adapter never exposes a sixteenth row.
+- `upsert` replaces the selected slot and persists it to SharedPreferences and the local backup file.
 - Existing non-protected user playlists survive activity reload and application restart.
-- `AlFahad` cannot return from cached data, while the single `Falcon` preset is persisted as `MazenmiX` with the requested blank credentials.
-- Editing `MazenmiX` preserves the exact saved server URL, username, and password across dialog dismissal, activity refresh, and application restart.
-- Null or empty stored playlist state self-recovers to one `MazenmiX` card plus the Add Playlist card.
+- `AlFahad` cannot return; `Falcon`/`MazenmiX` migrates once into `playlist1` without losing its credential-bearing URL.
+- Editing any of the 15 slots preserves the exact saved server URL, username, and password across dialog dismissal, activity refresh, and application restart.
+- Null or empty stored playlist state self-recovers to `playlist1` through `playlist15`.
 - Live TV, VOD, Series, playback, EPG, and sync code are untouched.
