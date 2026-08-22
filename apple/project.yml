@@ -32,6 +32,8 @@ targets:
       path: MazenmiXTreamApp/Info.plist
       properties:
         CFBundleDisplayName: MazenmiXTream
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen:
           UIColorName: LaunchBackground
         UIRequiresFullScreen: false
