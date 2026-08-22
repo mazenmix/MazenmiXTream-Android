@@ -3,7 +3,8 @@ set -euo pipefail
 
 APPLE_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUTPUT_DIR="${1:-${APPLE_ROOT}/release}"
-IPA_NAME="MazenmiXTream-iOS-v1.0.0-unsigned.ipa"
+VERSION="$(awk '/MARKETING_VERSION:/ { print $2; exit }' "${APPLE_ROOT}/project.yml" | tr -d '\"')"
+IPA_NAME="MazenmiXTream-iOS-v${VERSION}-unsigned.ipa"
 TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/MazenmiXTreamIPA.XXXXXX")"
 DERIVED_DATA="${TEMP_ROOT}/DerivedData"
 STAGING_DIR="${TEMP_ROOT}/Staging"

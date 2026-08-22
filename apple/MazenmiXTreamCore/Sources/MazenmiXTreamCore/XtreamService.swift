@@ -72,12 +72,12 @@ public struct XtreamService: Sendable {
             let categoryID = text(row["category_id"], fallback: "0")
             let name = text(row["name"], fallback: "Untitled")
             let direct = normalizedStreamURL(text(row["direct_source"]), base: server.streamBaseURL)
-            let ext = cleanExtension(text(row["container_extension"]), live: true)
+            let ext = XtreamPlaybackPlanner.cleanExtension(text(row["container_extension"]), live: true)
             return MediaItem(
                 id: "live-\(streamID)", name: name,
                 group: liveNames[categoryID] ?? "Live TV", categoryID: categoryID, kind: .live,
                 logoURL: text(row["stream_icon"]),
-                playbackURLs: playbackURLs(kind: .live, streamID: streamID, explicitExtension: ext, direct: direct, credentials: credentials, server: server),
+                playbackURLs: XtreamPlaybackPlanner.urls(kind: .live, streamID: streamID, explicitExtension: ext, direct: direct, credentials: credentials, server: server),
                 epgID: text(row["epg_channel_id"]), streamID: streamID,
                 isAdult: integer(row["is_adult"]) == 1 || ContentFilter.isAdult("\(name) \(liveNames[categoryID] ?? "")")
             )
@@ -90,12 +90,12 @@ public struct XtreamService: Sendable {
             let categoryID = text(row["category_id"], fallback: "0")
             let name = text(row["name"], fallback: "Untitled")
             let direct = normalizedStreamURL(text(row["direct_source"]), base: server.streamBaseURL)
-            let ext = cleanExtension(text(row["container_extension"]), live: false)
+            let ext = XtreamPlaybackPlanner.cleanExtension(text(row["container_extension"]), live: false)
             return MediaItem(
                 id: "movie-\(streamID)", name: name,
                 group: movieNames[categoryID] ?? "Movies", categoryID: categoryID, kind: .movie,
                 logoURL: text(row["stream_icon"]),
-                playbackURLs: playbackURLs(kind: .movie, streamID: streamID, explicitExtension: ext, direct: direct, credentials: credentials, server: server),
+                playbackURLs: XtreamPlaybackPlanner.urls(kind: .movie, streamID: streamID, explicitExtension: ext, direct: direct, credentials: credentials, server: server),
                 streamID: streamID, year: text(row["year"]), rating: text(row["rating"]),
                 isAdult: integer(row["is_adult"]) == 1 || ContentFilter.isAdult("\(name) \(movieNames[categoryID] ?? "")")
             )
@@ -152,12 +152,12 @@ public struct XtreamService: Sendable {
                 let episodeID = text(row["id"])
                 guard !episodeID.isEmpty else { return nil }
                 let title = text(row["title"], fallback: "Episode \(text(row["episode_num"], fallback: episodeID))")
-                let ext = cleanExtension(text(row["container_extension"]), live: false)
+                let ext = XtreamPlaybackPlanner.cleanExtension(text(row["container_extension"]), live: false)
                 let direct = normalizedStreamURL(text(row["direct_source"]), base: server.streamBaseURL)
                 return MediaItem(
                     id: "episode-\(episodeID)", name: title, group: "Season \(number)", categoryID: String(number), kind: .episode,
                     logoURL: text(row["info"] as? [String: Any], key: "movie_image"),
-                    playbackURLs: playbackURLs(kind: .episode, streamID: episodeID, explicitExtension: ext, direct: direct, credentials: credentials, server: server),
+                    playbackURLs: XtreamPlaybackPlanner.urls(kind: .episode, streamID: episodeID, explicitExtension: ext, direct: direct, credentials: credentials, server: server),
                     streamID: episodeID
                 )
             }
@@ -205,32 +205,6 @@ public struct XtreamService: Sendable {
         return components.url?.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) ?? fallback
     }
 
-    private func playbackURLs(kind: MediaKind, streamID: String, explicitExtension: String, direct: String, credentials: XtreamCredentials, server: ServerAccountInfo) -> [String] {
-        let route = kind == .live ? "live" : kind == .episode ? "series" : "movie"
-        let allowed = server.allowedOutputFormats.map { cleanExtension($0, live: kind == .live) }.filter { !$0.isEmpty }
-        var formats: [String] = []
-        if kind == .live, allowed.contains("m3u8") { formats.append("m3u8") }
-        if !explicitExtension.isEmpty { formats.append(explicitExtension) }
-        formats.append(contentsOf: allowed)
-        if formats.isEmpty { formats = [kind == .live ? "ts" : "mp4"] }
-
-        var urls: [String] = []
-        func add(_ value: String) {
-            guard !value.isEmpty, !urls.contains(value) else { return }
-            urls.append(value)
-        }
-        if kind != .live { add(direct) }
-        for ext in formats.prefix(3) {
-            let safePath = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: "/?#"))
-            let username = credentials.username.addingPercentEncoding(withAllowedCharacters: safePath) ?? credentials.username
-            let password = credentials.password.addingPercentEncoding(withAllowedCharacters: safePath) ?? credentials.password
-            let identifier = streamID.addingPercentEncoding(withAllowedCharacters: safePath) ?? streamID
-            add("\(server.streamBaseURL)/\(route)/\(username)/\(password)/\(identifier).\(ext)")
-        }
-        if kind == .live { add(direct) }
-        return urls
-    }
-
     private func normalizedStreamURL(_ value: String, base: String) -> String {
         guard !value.isEmpty else { return "" }
         if value.hasPrefix("//") { return "\(URL(string: base)?.scheme ?? "http"):\(value)" }
@@ -250,12 +224,6 @@ public struct XtreamService: Sendable {
             let id = text(row["category_id"])
             if !id.isEmpty { output[id] = text(row["category_name"], fallback: "Other") }
         }
-    }
-
-    private func cleanExtension(_ value: String, live: Bool) -> String {
-        let cleaned = value.lowercased().trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        let allowed = live ? ["m3u8", "ts"] : ["mp4", "mov", "m4v", "m3u8", "ts", "mkv", "avi"]
-        return allowed.contains(cleaned) ? cleaned : ""
     }
 
     private func text(_ value: Any?, fallback: String = "") -> String {

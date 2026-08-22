@@ -8,6 +8,8 @@ const required = [
   "MazenmiXTreamCore/Sources/MazenmiXTreamCore/Models.swift",
   "MazenmiXTreamCore/Sources/MazenmiXTreamCore/APIClient.swift",
   "MazenmiXTreamCore/Sources/MazenmiXTreamCore/M3UParser.swift",
+  "MazenmiXTreamCore/Sources/MazenmiXTreamCore/ChannelBrowse.swift",
+  "MazenmiXTreamCore/Sources/MazenmiXTreamCore/PlaybackPlanner.swift",
   "MazenmiXTreamCore/Sources/MazenmiXTreamCore/XtreamService.swift",
   "MazenmiXTreamApp/MazenmiXTreamApp.swift",
   "MazenmiXTreamApp/Models/AppModel.swift",
@@ -31,7 +33,9 @@ const swift = walk(apple).filter((file) => file.endsWith(".swift")).map((file) =
 for (const marker of [
   "NavigationSplitView", "TabView", "AVPlayerViewController", "allowsPictureInPicturePlayback",
   "KeychainStore", "get_live_streams", "get_vod_streams", "get_series", "get_short_epg",
-  "M3UParser", "playbackURLs", "hideAdult", "SeriesDetailView"
+  "M3UParser", "playbackURLs", "hideAdult", "SeriesDetailView",
+  "ChannelBrowseIndex", "Countries", "Categories", "Search channels",
+  "loadTracks(withMediaType: .video)", "returned audio only", "XtreamPlaybackPlanner"
 ]) {
   if (!swift.includes(marker)) throw new Error(`Apple implementation marker is missing: ${marker}`);
 }

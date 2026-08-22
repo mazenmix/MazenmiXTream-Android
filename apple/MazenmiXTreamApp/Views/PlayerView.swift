@@ -20,9 +20,18 @@ struct PlayerScreen: View {
                 .ignoresSafeArea()
 
             if playerModel.isConnecting {
-                ProgressView("Opening stream…")
-                    .padding(18)
-                    .background(.black.opacity(0.72), in: RoundedRectangle(cornerRadius: 16))
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView().controlSize(.large)
+                        Text("Finding the best video stream…").font(.subheadline.weight(.semibold))
+                        Text("Trying Apple-compatible HLS first")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(20)
+                    .background(MXTheme.panel.opacity(0.94), in: RoundedRectangle(cornerRadius: 16))
+                }
             }
 
             if let error = playerModel.errorMessage {
