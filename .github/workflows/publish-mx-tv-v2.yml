@@ -38,7 +38,7 @@ jobs:
           python3 .github/mx_tv_v2_patch.py work
           grep -q 'android:text="Favorites"' work/res/layout/activity_live_channel.xml
           grep -q 'divider_series_favorite' work/res/layout/activity_live_channel.xml
-          grep -q 'android:versionCode="101"' work/AndroidManifest.xml
+          grep -qE '^\s*versionCode:\s*101\s*$' work/apktool.yml
 
       - name: Build, align and sign
         shell: bash

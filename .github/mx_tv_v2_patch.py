@@ -55,10 +55,12 @@ for f in sorted(res.glob("layout*/activity_*.xml")):
     f.write_text(s, encoding="utf-8")
     patched.append(str(f.relative_to(root)))
 
-man = root / "AndroidManifest.xml"
-ms = man.read_text(encoding="utf-8")
-ms = re.sub(r'android:versionCode="\d+"', 'android:versionCode="101"', ms, count=1)
-man.write_text(ms, encoding="utf-8")
+# Apktool owns versionCode in apktool.yml for this decoded APK.
+yml = root / "apktool.yml"
+ys = yml.read_text(encoding="utf-8")
+ys, n = re.subn(r'(?m)^(\s*versionCode:)\s*\d+\s*$', r'\1 101', ys, count=1)
+assert n == 1
+yml.write_text(ys, encoding="utf-8")
 
 live_method = """
 .method public openFavorites(Landroid/view/View;)V
@@ -133,5 +135,6 @@ for rel, method in classes.items():
 
 print(f"Patched {len(patched)} layout variants")
 assert len(patched) >= 30
-assert "divider_series_favorite" in (root / "res/layout/activity_live_channel.xml").read_text(encoding="utf-8")
-assert 'android:text="Favorites"' in (root / "res/layout/activity_live_channel.xml").read_text(encoding="utf-8")
+check = (root / "res/layout/activity_live_channel.xml").read_text(encoding="utf-8")
+assert "divider_series_favorite" in check
+assert 'android:text="Favorites"' in check
