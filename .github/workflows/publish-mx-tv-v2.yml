@@ -48,7 +48,13 @@ jobs:
           BUILD_TOOLS="$(find "$ANDROID_SDK_ROOT/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           echo "Using Android build tools: $BUILD_TOOLS"
           "$BUILD_TOOLS/zipalign" -f -p 4 unsigned.apk "MX TV v2.apk"
-          "$BUILD_TOOLS/apksigner" sign             --ks debug.keystore             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --min-sdk-version 21             "MX TV v2.apk"
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks debug.keystore \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --min-sdk-version 21 \
+            "MX TV v2.apk"
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "MX TV v2.apk" | tee verify.txt
           grep -qi 'Verified using v1 scheme (JAR signing): true' verify.txt
           grep -qi 'Verified using v2 scheme (APK Signature Scheme v2): true' verify.txt
@@ -58,10 +64,36 @@ jobs:
           grep -q "versionCode='101'" badging.txt
           sha256sum "MX TV v2.apk"
 
-      - name: Create GitHub release with direct APK
+      - name: Keep release asset available
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh release create "MX-TV-v2"             --target "$GITHUB_SHA"             --title "MX TV v2"             --notes "MX TV v2 — Favorites shortcut and matching Series/Favorites divider. Same Android signing certificate for update compatibility."             "MX TV v2.apk"
+          if gh release view "MX-TV-v2" >/dev/null 2>&1; then
+            gh release upload "MX-TV-v2" "MX TV v2.apk" --clobber
+          else
+            gh release create "MX-TV-v2" \
+              --target "$GITHUB_SHA" \
+              --title "MX TV v2" \
+              --notes "MX TV v2 — Favorites shortcut and matching Series/Favorites divider. Same Android signing certificate for update compatibility." \
+              "MX TV v2.apk"
+          fi
+
+      - name: Publish exact filename for direct link
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir exact-link
+          cp "MX TV v2.apk" "exact-link/MX TV v2.apk"
+          cd exact-link
+          git init
+          git checkout -b download-mx-tv-v2
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "MX TV v2.apk"
+          git commit -m "Publish MX TV v2 APK"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin download-mx-tv-v2
