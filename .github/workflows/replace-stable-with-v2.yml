@@ -1,0 +1,27 @@
+name: Replace Stable APK with MX TV v2
+
+on:
+  push:
+    branches:
+      - publish-mx-tv-v2
+
+permissions:
+  contents: write
+
+jobs:
+  replace:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Replace existing stable asset without changing its URL
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p work
+          cd work
+          gh release download "MX-TV-v2"             --repo "$GITHUB_REPOSITORY"             --pattern "MX.TV.v2.apk"
+          mv "MX.TV.v2.apk" "MazenmiXTream-v1.1.6.apk"
+          gh release upload "MazenmiXTream-v1.1.6"             --repo "$GITHUB_REPOSITORY"             "MazenmiXTream-v1.1.6.apk"             --clobber
+          gh release edit "MazenmiXTream-v1.1.6"             --repo "$GITHUB_REPOSITORY"             --latest
+          sha256sum "MazenmiXTream-v1.1.6.apk"
