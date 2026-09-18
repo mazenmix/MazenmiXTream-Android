@@ -1,0 +1,67 @@
+name: Publish MX TV v2
+
+on:
+  push:
+    branches:
+      - publish-mx-tv-v2
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout publish branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Download base APK and build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -o base.apk "https://github.com/mazenmix/MazenmiXTream-Android/releases/download/MazenmiXTream-v1.1.6/MazenmiXTream-v1.1.6.apk"
+          echo "fea4bf1c2e4f9164143f5a840e9ae5e4dd37fda83f64af367ce9fdcc95d66ed5  base.apk" | sha256sum -c -
+          curl -fL --retry 3 -o apktool.jar "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar"
+          curl -fL --retry 3 -o debug.keystore "https://raw.githubusercontent.com/patrickfav/uber-apk-signer/76cbf02556b4454f4c2bd6c908b4355003c4e37d/src/main/resources/debug.keystore"
+
+      - name: Decode and apply MX TV v2 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -jar apktool.jar d -f -o work base.apk
+          python3 .github/mx_tv_v2_patch.py work
+          grep -q 'android:text="Favorites"' work/res/layout/activity_live_channel.xml
+          grep -q 'divider_series_favorite' work/res/layout/activity_live_channel.xml
+          grep -q 'android:versionCode="101"' work/AndroidManifest.xml
+
+      - name: Build, align and sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -jar apktool.jar b -o unsigned.apk work
+          BUILD_TOOLS="$(find "$ANDROID_SDK_ROOT/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          echo "Using Android build tools: $BUILD_TOOLS"
+          "$BUILD_TOOLS/zipalign" -f -p 4 unsigned.apk "MX TV v2.apk"
+          "$BUILD_TOOLS/apksigner" sign             --ks debug.keystore             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --min-sdk-version 21             "MX TV v2.apk"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "MX TV v2.apk" | tee verify.txt
+          grep -qi 'Verified using v1 scheme (JAR signing): true' verify.txt
+          grep -qi 'Verified using v2 scheme (APK Signature Scheme v2): true' verify.txt
+          grep -qi 'Verified using v3 scheme (APK Signature Scheme v3): true' verify.txt
+          grep -qi '1e08a903aef9c3a721510b64ec764d01d3d094eb954161b62544ea8f187b5953' verify.txt
+          "$BUILD_TOOLS/aapt" dump badging "MX TV v2.apk" | tee badging.txt
+          grep -q "versionCode='101'" badging.txt
+          sha256sum "MX TV v2.apk"
+
+      - name: Create GitHub release with direct APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "MX-TV-v2"             --target "$GITHUB_SHA"             --title "MX TV v2"             --notes "MX TV v2 — Favorites shortcut and matching Series/Favorites divider. Same Android signing certificate for update compatibility."             "MX TV v2.apk"
