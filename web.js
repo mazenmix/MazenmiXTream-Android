@@ -3,7 +3,7 @@
 const KEY="mxtv.web.premium.v1", LEGACY="mazenmixtream.state.v1";
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
-const state={view:"home",section:"live",category:"all",query:"",catalog:{live:[],movies:[],series:[],liveCats:[],movieCats:[],seriesCats:[]},server:null,loading:false,player:null,playerEngine:null,playlists:[],activeId:null,favorites:[]};
+const state={view:"home",section:"live",category:"all",query:"",catalog:{live:[],movies:[],series:[],liveCats:[],movieCats:[],seriesCats:[]},server:null,loading:false,player:null,playerEngine:null,episodeItems:[],playlists:[],activeId:null,favorites:[]};
 function load(){
  let previous=null;try{previous=JSON.parse(localStorage.getItem(KEY)||"null")}catch{}
  if(previous){state.playlists=Array.isArray(previous.playlists)?previous.playlists:[];state.activeId=previous.activeId||state.playlists[0]?.id||null;state.favorites=Array.isArray(previous.favorites)?previous.favorites:[];return}
@@ -150,6 +150,32 @@ async function reload(){
   status("Connection unavailable","error");render();$("main").insertAdjacentHTML("afterbegin",'<div class="error-note"><b>Playlist did not load:</b> '+esc(error.message)+' <button class="secondary" data-refresh>Retry</button></div>');
  }finally{state.loading=false}
 }
+
+async function openSeries(item){
+ const playlist=active();
+ if(!playlist || playlist.type!=="xtream"){notify("No Xtream account selected");return}
+ openDialog('<div class="dialog-head"><h2>'+esc(item.name)+'</h2><button class="dialog-close" data-close>×</button></div><div class="empty"><b>Loading episodes…</b></div>');
+ try{
+  const result=await proxy(getUrl(playlist.baseUrl,{username:playlist.username,password:playlist.password,action:"get_series_info",series_id:item.id}));
+  const groups=result?.episodes&&typeof result.episodes==="object"?result.episodes:{};
+  const found=[];
+  for(const [season,episodes] of Object.entries(groups)){
+   if(!Array.isArray(episodes))continue;
+   for(const ep of episodes){
+    const id=ep.id||ep.stream_id;
+    if(!id)continue;
+    const ext=String(ep.container_extension||"mp4").replace(/[^a-z0-9]/gi,"")||"mp4";
+    const base=state.server?.stream_base||playlist.baseUrl;
+    const url=/^https?:\/\//i.test(ep.direct_source||"")?ep.direct_source:base+"/series/"+encodeURIComponent(playlist.username)+"/"+encodeURIComponent(playlist.password)+"/"+encodeURIComponent(String(id))+"."+ext;
+    found.push({key:"episode-"+String(id),kind:"episode",id,name:ep.title||item.name+" - Episode "+String(ep.episode_num||found.length+1),cat:String(season),group:"Season "+season,url,logo:item.logo,ext});
+   }
+  }
+  state.episodeItems=found;
+  if(!found.length)throw Error("Provider did not return episodes for this series");
+  openDialog('<div class="dialog-head"><h2>'+esc(item.name)+'</h2><button class="dialog-close" data-close>×</button></div><p class="notice">'+found.length+' episodes available</p><div style="max-height:55vh;overflow:auto">'+found.slice(0,500).map(ep=>'<button class="list-row" style="width:100%;color:white;text-align:left" data-episode="'+esc(ep.key)+'"><span><strong>'+esc(ep.name)+'</strong><span class="sub" style="display:block">'+esc(ep.group)+'</span></span><span>▶</span></button>').join("")+'</div>');
+ }catch(error){openDialog('<div class="dialog-head"><h2>'+esc(item.name)+'</h2><button class="dialog-close" data-close>×</button></div><div class="error-note">Could not load episodes: '+esc(error.message)+'</div>')}
+}
+
 function openPlayer(it){
  $("playerName").textContent=it.name;$("playerDetails").textContent=it.group;
  $("playerError").textContent="";$("player").classList.remove("hidden");
@@ -182,7 +208,8 @@ document.addEventListener("click",ev=>{
  if(target.dataset.refresh!==undefined){reload();return}
  if(target.dataset.clear!==undefined){state.catalog={live:[],movies:[],series:[],liveCats:[],movieCats:[],seriesCats:[]};render();notify("Web catalog cleared");return}
  if(target.dataset.cat){state.category=target.dataset.cat;render();return}
- if(target.dataset.item){const it=[...state.catalog.live,...state.catalog.movies,...state.catalog.series].find(x=>x.key===target.dataset.item);if(it)openPlayer(it);return}
+ if(target.dataset.item){const it=[...state.catalog.live,...state.catalog.movies,...state.catalog.series].find(x=>x.key===target.dataset.item);if(it){if(it.kind==="series")openSeries(it);else openPlayer(it)}return}
+ if(target.dataset.episode){const ep=state.episodeItems.find(x=>x.key===target.dataset.episode);if(ep){closeDialog();openPlayer(ep)}return}
  if(target.id==="closePlayer"){stopPlayer();return}
  if(target.id==="favoritePlayer"){const key=state.player?.key;if(!key)return;state.favorites=state.favorites.includes(key)?state.favorites.filter(x=>x!==key):[...state.favorites,key];save();notify("Favorites updated");return}
 });
