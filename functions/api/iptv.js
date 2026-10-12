@@ -109,7 +109,15 @@ export async function onRequest({ request, env }) {
       if (!next) return errorResponse("Stream redirected outside allowed origins", 502);
       remote = next;
     }
-  } catch {
+  } catch (error) {
+    // Keep playlist credentials and full stream URLs out of function logs.
+    // This only logs connection metadata for troubleshooting.
+    console.error("MX_IPTV_UPSTREAM_FAILURE", {
+      origin: remote.origin,
+      errorType: String(error?.name || "UnknownError"),
+      causeType: String(error?.cause?.name || ""),
+      causeCode: String(error?.cause?.code || "")
+    });
     return errorResponse("The IPTV server could not be reached from Cloudflare", 502);
   }
 
