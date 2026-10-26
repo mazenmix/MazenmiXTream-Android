@@ -55,10 +55,61 @@
       padding: 60px 0 80px;
     }
 
-    h1 {
-      margin: 0 0 10px;
-      font-size: clamp(42px, 7vw, 72px);
-      letter-spacing: -2px;
+    /* Brand lettering mirrors the white + glossy crimson application splash mark. */
+    .brand-title {
+      position: relative;
+      display: inline-flex;
+      align-items: baseline;
+      justify-content: center;
+      white-space: nowrap;
+      margin: 0 0 14px;
+      font-size: clamp(27px, 7.1vw, 78px);
+      font-weight: 900;
+      line-height: 1.18;
+      letter-spacing: -0.052em;
+      isolation: isolate;
+    }
+
+    .brand-title .brand-white {
+      color: #fff;
+      background: linear-gradient(180deg, #ffffff 0%, #ffffff 29%, #f7edf0 55%, #bdb1b7 85%, #fbf7f8 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 9px rgba(255,255,255,.23));
+    }
+
+    .brand-title .brand-red {
+      position: relative;
+      color: #ff5268;
+      background: linear-gradient(180deg, #ffe3e6 0%, #ff8e9e 16%, #ff425c 36%, #f02444 58%, #a91027 84%, #fe4864 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 8px rgba(255,48,76,.52)) drop-shadow(0 6px 14px rgba(205,10,35,.3));
+    }
+
+    .brand-title::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -5px;
+      width: 54%;
+      height: 2px;
+      transform: translateX(-50%);
+      background: linear-gradient(90deg, transparent, rgba(250,49,75,.12) 15%, rgba(255,72,99,.85) 54%, rgba(255,98,119,.28) 80%, transparent);
+      box-shadow: 0 0 8px rgba(249,34,67,.45);
+      pointer-events: none;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .brand-title .brand-red {
+        animation: brand-shine 5.5s ease-in-out infinite;
+      }
+      @keyframes brand-shine {
+        0%, 75%, 100% { filter: drop-shadow(0 0 8px rgba(255,48,76,.5)) drop-shadow(0 6px 14px rgba(205,10,35,.3)); }
+        85% { filter: drop-shadow(0 0 13px rgba(255,93,121,.75)) drop-shadow(0 6px 19px rgba(255,36,64,.48)); }
+      }
     }
 
     h2 {
@@ -204,7 +255,7 @@
     <path d="M1789 578L1425 864" fill="none" stroke="url(#mx-streak)" stroke-width="5"/>
   </svg>
   <main class="page">
-    <h1>MazenmiXTream</h1>
+    <h1 class="brand-title" aria-label="MazenmiXTream"><span class="brand-white">Mazenmi</span><span class="brand-red">XTream</span></h1>
 
     <p>
       Fast and lightweight IPTV player for Android phones,
