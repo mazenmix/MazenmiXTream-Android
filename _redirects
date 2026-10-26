@@ -1,0 +1,2 @@
+# Show the public APK landing page at the Cloudflare Pages root without changing the native app entry point.
+/ /docs/index.html 200
