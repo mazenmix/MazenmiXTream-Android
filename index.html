@@ -1,6 +1,13 @@
 <!doctype html>
 <html lang="en" dir="ltr">
 <head>
+  <script>
+    // The public Cloudflare Pages hostname serves the APK landing page.
+    // Native Android builds continue using the player normally.
+    if (window.location.hostname === 'mxiptv.pages.dev' && (window.location.pathname === '/' || window.location.pathname === '/index.html')) {
+      window.location.replace('/docs/');
+    }
+  </script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="theme-color" content="#08090c">
