@@ -19,15 +19,37 @@
       box-sizing: border-box;
     }
 
+    html {
+      min-height: 100%;
+      background: #100104;
+    }
+
     body {
       margin: 0;
+      min-height: 100vh;
+      position: relative;
+      isolation: isolate;
       font-family: Arial, sans-serif;
-      background: #0b0b0f;
+      background: #100104;
       color: white;
       text-align: center;
     }
 
+    /* Full-viewport deep-red folded-metal artwork, based on the app's opening screen.
+       The background intentionally contains neither the MX logo nor a WAIT indicator. */
+    .brand-wallpaper {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      display: block;
+      pointer-events: none;
+    }
+
     .page {
+      position: relative;
+      z-index: 1;
       width: min(1180px, calc(100% - 40px));
       margin: 0 auto;
       padding: 60px 0 80px;
@@ -71,9 +93,12 @@
       box-shadow: 0 16px 42px rgba(180, 35, 210, 0.4);
     }
 
-    .features,
-    .screenshots {
+    .features {
       margin-top: 70px;
+    }
+
+    .screenshots {
+      margin-top: 55px;
     }
 
     .screenshots-grid {
@@ -86,9 +111,9 @@
     .screenshot-card {
       display: block;
       overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 112, 124, 0.20);
       border-radius: 18px;
-      background: #14141b;
+      background: rgba(24, 3, 9, 0.72);
       box-shadow: 0 16px 45px rgba(0, 0, 0, 0.35);
       transition: transform 0.22s ease, border-color 0.22s ease;
     }
@@ -104,12 +129,6 @@
       height: auto;
     }
 
-    .hint {
-      margin-top: 18px;
-      color: #8f8f9f;
-      font-size: 14px;
-    }
-
     @media (max-width: 900px) {
       .screenshots-grid {
         grid-template-columns: 1fr;
@@ -119,6 +138,71 @@
 </head>
 
 <body>
+  <svg class="brand-wallpaper" viewBox="0 0 1789 864" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+    <defs>
+      <radialGradient id="mx-bg-center" cx="49%" cy="47%" r="79%">
+        <stop offset="0" stop-color="#210408"/>
+        <stop offset=".48" stop-color="#140104"/>
+        <stop offset="1" stop-color="#050001"/>
+      </radialGradient>
+      <linearGradient id="mx-fold-upper-left" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#160104"/>
+        <stop offset=".56" stop-color="#3d090e"/>
+        <stop offset=".76" stop-color="#250408"/>
+        <stop offset="1" stop-color="#080001"/>
+      </linearGradient>
+      <linearGradient id="mx-fold-side-left" x1="0" y1="0" x2="1" y2=".9">
+        <stop offset="0" stop-color="#090001"/>
+        <stop offset=".35" stop-color="#340509"/>
+        <stop offset=".58" stop-color="#4b0d12"/>
+        <stop offset="1" stop-color="#0c0102"/>
+      </linearGradient>
+      <linearGradient id="mx-fold-upper-right" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#45080f"/>
+        <stop offset=".18" stop-color="#230408"/>
+        <stop offset=".68" stop-color="#090001"/>
+        <stop offset="1" stop-color="#1c0205"/>
+      </linearGradient>
+      <linearGradient id="mx-fold-lower-left" x1="0" y1="0" x2=".7" y2="1">
+        <stop offset="0" stop-color="#080001"/>
+        <stop offset=".45" stop-color="#36070c"/>
+        <stop offset=".69" stop-color="#4e1016"/>
+        <stop offset="1" stop-color="#100103"/>
+      </linearGradient>
+      <linearGradient id="mx-fold-lower-right" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#090001"/>
+        <stop offset=".56" stop-color="#38070d"/>
+        <stop offset=".77" stop-color="#4b0b13"/>
+        <stop offset="1" stop-color="#110103"/>
+      </linearGradient>
+      <pattern id="mx-metal-grain" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(24)">
+        <path d="M0 0V5" stroke="#fa6372" stroke-opacity=".08" stroke-width=".6"/>
+      </pattern>
+      <linearGradient id="mx-streak" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#4b0911" stop-opacity="0"/>
+        <stop offset=".5" stop-color="#b03c48" stop-opacity=".48"/>
+        <stop offset="1" stop-color="#4b0911" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect width="1789" height="864" fill="url(#mx-bg-center)"/>
+    <path d="M0 0H404L0 477Z" fill="url(#mx-fold-upper-left)"/>
+    <path d="M0 476L391 0H536L68 529Z" fill="url(#mx-fold-side-left)" opacity=".82"/>
+    <path d="M0 0H382L0 465Z" fill="url(#mx-metal-grain)" opacity=".72"/>
+    <path d="M1130 0H1789V355L1228 0Z" fill="url(#mx-fold-upper-right)" opacity=".95"/>
+    <path d="M1380 0H1789V250Z" fill="url(#mx-metal-grain)" opacity=".42"/>
+    <path d="M0 501L571 864H0Z" fill="url(#mx-fold-lower-left)"/>
+    <path d="M0 608L391 864H0Z" fill="url(#mx-metal-grain)" opacity=".8"/>
+    <path d="M0 637L334 864H0Z" fill="#38080d" opacity=".25"/>
+    <path d="M1789 512V864H1208Z" fill="url(#mx-fold-lower-right)"/>
+    <path d="M1789 590V864H1401Z" fill="url(#mx-metal-grain)" opacity=".8"/>
+    <path d="M1789 567L1456 864H1378Z" fill="#31050a" opacity=".4"/>
+    <path d="M0 463L375 0" fill="none" stroke="url(#mx-streak)" stroke-width="5"/>
+    <path d="M56 531L523 0" fill="none" stroke="#8a2933" stroke-opacity=".23" stroke-width="3"/>
+    <path d="M0 599L424 864" fill="none" stroke="url(#mx-streak)" stroke-width="5"/>
+    <path d="M0 670L310 864" fill="none" stroke="#8e2732" stroke-opacity=".21" stroke-width="3"/>
+    <path d="M1149 0L1789 353" fill="none" stroke="#a92e3b" stroke-opacity=".21" stroke-width="5"/>
+    <path d="M1789 578L1425 864" fill="none" stroke="url(#mx-streak)" stroke-width="5"/>
+  </svg>
   <main class="page">
     <h1>MazenmiXTream</h1>
 
@@ -141,9 +225,7 @@
       </p>
     </section>
 
-    <section class="screenshots" aria-labelledby="screenshots-title">
-      <h2 id="screenshots-title">App Screenshots</h2>
-      <p>Explore the MazenmiXTream interface on Android TV and compatible devices.</p>
+    <section class="screenshots" aria-label="App screenshots">
 
       <div class="screenshots-grid">
         <a class="screenshot-card" href="https://raw.githubusercontent.com/mazenmix/MazenmiXTream-Android/main/screenshots/1.jpg" target="_blank" rel="noopener">
@@ -159,7 +241,6 @@
         </a>
       </div>
 
-      <div class="hint">Click any screenshot to open it in full size.</div>
     </section>
   </main>
 </body>
