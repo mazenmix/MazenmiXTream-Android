@@ -6,7 +6,7 @@
   const CACHE_STORE = "catalogs";
   const CACHE_MAX_AGE = 12 * 60 * 60 * 1000;
   const CACHE_CHUNK_SIZE = 4000;
-  const PLAYBACK_SCHEMA = 2;
+  const PLAYBACK_SCHEMA = 3;
   const NETWORK_RETRY_DELAYS = [500, 1400];
   const ACCOUNT_TIMEOUT = 60000;
   const CATEGORY_TIMEOUT = 75000;
@@ -108,7 +108,7 @@
   function saveState() {
     const clean = {
       ...state,
-      playlists: state.playlists.map(({ catalog: ignored, ...playlist }) => playlist)
+      playlists: state.playlists.map(({ catalog: ignored, stalkerToken: ignoredToken, stalkerEndpoint: ignoredEndpoint, ...playlist }) => playlist)
     };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(clean)); }
     catch (_) { toast("Storage is full. Remove an unused playlist and try again."); }
@@ -300,7 +300,7 @@
     el("serverTitle").textContent = p.name;
     const info = p.serverInfo || {};
     const active = !info.status || String(info.status).toLowerCase() === "active";
-    el("serverMeta").textContent = p.type === "xtream" ? `${active ? "Active" : "Inactive"} • ${formatExpiry(info.exp_date)}` : "M3U playlist";
+    el("serverMeta").textContent = p.type === "xtream" ? `${active ? "Active" : "Inactive"} • ${formatExpiry(info.exp_date)}` : p.type === "stalker" ? "Stalker Portal • MAG" : "M3U playlist";
     q(".status-dot", chip).classList.toggle("inactive", !active);
   }
 
@@ -505,7 +505,7 @@
         if (cached?.catalog) setCatalogProgress(9, "Upgrading saved stream links once…");
       }
       setCatalogProgress(10, "Signing in and loading everything…");
-      const loaded = playlist.type === "xtream" ? await loadXtream(playlist) : await loadM3u(playlist);
+      const loaded = playlist.type === "xtream" ? await loadXtream(playlist) : playlist.type === "stalker" ? await loadStalker(playlist) : await loadM3u(playlist);
       if (token !== loadToken) return;
       catalog = loaded;
       playlist.catalog = loaded;
@@ -539,7 +539,7 @@
   async function refreshCatalogInBackground(playlist, parentToken) {
     if (loadingCatalog) return;
     try {
-      const fresh = playlist.type === "xtream" ? await loadXtream(playlist, true) : await loadM3u(playlist, true);
+      const fresh = playlist.type === "xtream" ? await loadXtream(playlist, true) : playlist.type === "stalker" ? await loadStalker(playlist, true) : await loadM3u(playlist, true);
       if (parentToken !== loadToken || activePlaylist()?.id !== playlist.id) return;
       catalog = fresh;
       playlist.catalog = fresh;
@@ -651,6 +651,151 @@
 
   function mediaItem(item) {
     return { group: "Other", categoryId: "0", adult: false, ...item };
+  }
+
+  // Stalker/MAG support is for portals which have authorized this MAC address.
+  // Session tokens remain in memory; a restart obtains a fresh handshake.
+  function stalkerEndpoints(raw) {
+    const input = new URL(String(raw || "").trim());
+    if (!/^https?:$/.test(input.protocol)) throw new Error("Portal URL must begin with http or https");
+    input.search = ""; input.hash = "";
+    if (/\/(portal\.php|load\.php)$/i.test(input.pathname)) return [input.href];
+    let path = input.pathname.replace(/\/+$/, "") + "/";
+    if (/\/c\/$/i.test(path)) path = path.replace(/c\/$/i, "");
+    const root = new URL(path, input.origin);
+    return Array.from(new Set([
+      new URL("portal.php", root).href,
+      new URL("stalker_portal/server/load.php", root).href,
+      new URL("server/load.php", root).href
+    ]));
+  }
+
+  function stalkerHeaders(p, token = "") {
+    const mac = String(p.macAddress || "").toUpperCase();
+    const portal = new URL(p.portalUrl);
+    return {
+      "Cookie": "mac=" + encodeURIComponent(mac) + "; stb_lang=en; timezone=UTC",
+      "User-Agent": "Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG254 stbapp",
+      "X-User-Agent": "Model: MAG254; Link: Ethernet",
+      "Referer": portal.href,
+      "Accept": "*/*",
+      ...(token ? { "Authorization": "Bearer " + token } : {})
+    };
+  }
+
+  async function stalkerApi(p, type, action, params = {}, endpoint = p.stalkerEndpoint, token = p.stalkerToken) {
+    if (!endpoint) throw new Error("Stalker portal has not connected yet");
+    const query = new URLSearchParams({ type, action, JsHttpRequest: "1-xml" });
+    for (const [key, value] of Object.entries(params)) query.set(key, String(value));
+    const address = endpoint + (endpoint.includes("?") ? "&" : "?") + query.toString();
+    if (!window.MazenNetwork || typeof window.MazenNetwork.proxyUrlWithHeaders !== "function")
+      throw new Error("Stalker authentication requires this app's Android network bridge");
+    const url = window.MazenNetwork.proxyUrlWithHeaders(address, JSON.stringify(stalkerHeaders(p, token)));
+    const result = await requestAttempt(url, { method: "GET" }, ACCOUNT_TIMEOUT, (response) => response.text());
+    if (!result.response.ok) throw new Error("Stalker server returned HTTP " + result.response.status);
+    let payload;
+    try { payload = JSON.parse(result.body); }
+    catch (_) { throw new Error("Stalker portal returned an invalid response"); }
+    if (payload && payload.js && payload.js.error) throw new Error(String(payload.js.error));
+    return payload && Object.prototype.hasOwnProperty.call(payload, "js") ? payload.js : payload;
+  }
+
+  async function stalkerConnect(p) {
+    let lastError = null;
+    for (const endpoint of stalkerEndpoints(p.portalUrl)) {
+      try {
+        const response = await stalkerApi(p, "stb", "handshake", { token: "" }, endpoint, "");
+        const token = String(response?.token || "");
+        if (!token) throw new Error("MAC address was not authorized by this portal");
+        p.stalkerEndpoint = endpoint;
+        p.stalkerToken = token;
+        p.serverInfo = { status: "Active" };
+        // Some portals require profile registration; others reject this call despite a valid session.
+        try { await stalkerApi(p, "stb", "get_profile", { hd: "1" }); } catch (_) {}
+        return;
+      } catch (error) { lastError = error; }
+    }
+    throw lastError || new Error("Stalker portal rejected this MAC address");
+  }
+
+  function stalkerRows(value) {
+    if (Array.isArray(value)) return value;
+    if (Array.isArray(value?.data)) return value.data;
+    if (Array.isArray(value?.channels)) return value.channels;
+    return [];
+  }
+
+  async function loadStalker(p, background = false) {
+    if (!background) setCatalogProgress(12, "Authenticating Stalker MAC…");
+    await stalkerConnect(p);
+    if (!background) setCatalogProgress(30, "Loading Stalker categories…");
+    let genreRows = [];
+    try { genreRows = stalkerRows(await stalkerApi(p, "itv", "get_genres")); } catch (_) {}
+    const genres = new Map(genreRows.map((g) => [String(g.id), String(g.title || g.name || "Live TV")]));
+    if (!background) setCatalogProgress(46, "Downloading Stalker channels…");
+    let rows = [];
+    try { rows = stalkerRows(await stalkerApi(p, "itv", "get_all_channels")); } catch (_) {}
+    if (!rows.length) {
+      // Older middleware uses paginated get_ordered_list instead of get_all_channels.
+      const categoryIds = genreRows.length ? genreRows.map((g) => String(g.id)) : ["*"];
+      for (const genre of categoryIds) {
+        for (let page = 0; page < 100; page++) {
+          const result = await stalkerApi(p, "itv", "get_ordered_list", { genre, p: page, sortby: "number", fav: "0" });
+          const batch = stalkerRows(result);
+          if (!batch.length) break;
+          rows.push(...batch);
+          if (rows.length >= Number(result?.total_items || Infinity) && categoryIds.length === 1) break;
+          if (batch.length < 10) break;
+          if (page % 5 === 4) await sleep(0);
+        }
+      }
+    }
+    if (!rows.length) throw new Error("Stalker connected, but returned no channels");
+    const ids = new Set();
+    const live = await mapInChunks(rows, (x) => {
+      const id = String(x.id || x.ch_id || x.number || "");
+      const cmd = String(x.cmd || x.url || "");
+      if (!id || !cmd || ids.has(id)) return null;
+      ids.add(id);
+      const categoryId = String(x.tv_genre_id || x.genre_id || "0");
+      const group = genres.get(categoryId) || String(x.group || "Live TV");
+      return mediaItem({
+        id: "stalker-" + id, streamId: id, name: String(x.name || x.title || "Channel " + id),
+        logo: normalizeStreamUrl(x.logo || x.icon || "", p.portalUrl),
+        group, categoryId, kind: "live", stalkerCmd: cmd,
+        url: "", adult: ADULT_RE.test(String(x.name || "") + " " + group)
+      });
+    });
+    const channels = live.filter(Boolean);
+    const categories = Array.from(new Map(channels.map((x) => [x.categoryId, { id: x.categoryId, name: x.group }])).values());
+    if (!background) setCatalogProgress(100, "Stalker channels ready");
+    return { live: channels, movies: [], series: [], categories: { live: categories, movies: [], series: [] }, playbackSchema: PLAYBACK_SCHEMA };
+  }
+
+  function stalkerPlayableLink(value) {
+    let cmd = String(value || "").trim().replace(/^(ffmpeg|auto|ffrt\d*)\s+/i, "");
+    const match = cmd.match(/https?:\/\/[^\s"']+/i);
+    if (!match) throw new Error("Stalker portal did not provide a playable link");
+    return match[0];
+  }
+
+  async function stalkerCreateLink(p, item) {
+    if (!p.stalkerToken || !p.stalkerEndpoint) await stalkerConnect(p);
+    let result;
+    try {
+      result = await stalkerApi(p, "itv", "create_link", { cmd: item.stalkerCmd, series: "", forced_storage: "undefined", disable_ad: "0", download: "0" });
+    } catch (_) {
+      await stalkerConnect(p);
+      result = await stalkerApi(p, "itv", "create_link", { cmd: item.stalkerCmd, series: "", forced_storage: "undefined", disable_ad: "0", download: "0" });
+    }
+    const link = stalkerPlayableLink(typeof result === "string" ? result : result?.cmd || result?.url || "");
+    const headers = { "User-Agent": stalkerHeaders(p)["User-Agent"] };
+    // Never forward a Stalker session token or MAC cookie to an unrelated stream host.
+    if (new URL(link).host === new URL(p.stalkerEndpoint).host)
+      headers.Cookie = stalkerHeaders(p).Cookie;
+    item.headers = headers;
+    item.url = link;
+    return link;
   }
 
   async function loadM3u(p, background = false) {
@@ -956,10 +1101,10 @@
     setLiveBrowserMode(false);
     currentView = "manage";
     el("content").innerHTML = `
-      <div class="view-head"><div><div class="eyebrow">UNLIMITED SOURCES</div><h1>Manage playlists</h1><p>Add, switch, edit or remove your streaming sources</p></div><div class="view-actions"><button class="primary-button focusable" data-action="add-playlist">＋ ADD PLAYLIST</button></div></div>
+      <div class="view-head"><div><div class="eyebrow">50+ PLAYLISTS SUPPORTED</div><h1>Manage playlists</h1><p>${state.playlists.length} saved playlists • Add, switch, edit or remove sources</p></div><div class="view-actions"><button class="primary-button focusable" data-action="add-playlist">＋ ADD PLAYLIST</button></div></div>
       <div class="playlist-grid">
         ${state.playlists.map((p) => playlistCardHtml(p)).join("")}
-        <button class="add-playlist-card focusable" data-action="add-playlist"><b>＋</b><span>Add Xtream or M3U playlist</span></button>
+        <button class="add-playlist-card focusable" data-action="add-playlist"><b>＋</b><span>Add Xtream, M3U or Stalker Portal</span></button>
       </div>`;
     bindContentActions();
   }
@@ -967,7 +1112,7 @@
   function playlistCardHtml(p) {
     const active = p.id === state.activePlaylistId;
     const status = p.serverInfo && p.serverInfo.status ? p.serverInfo.status : active ? "Active" : "Ready";
-    return `<article class="playlist-card"><span class="playlist-type">${p.type === "xtream" ? "XTREAM CODES" : "M3U / M3U8"}</span><h3>${escapeHtml(p.name)}</h3><p>${escapeHtml(p.type === "xtream" ? normalizeBase(p.baseUrl).replace(/^https?:\/\//, "") : "Playlist URL saved")}</p>
+    return `<article class="playlist-card"><span class="playlist-type">${p.type === "xtream" ? "XTREAM CODES" : p.type === "stalker" ? "STALKER / MAG" : "M3U / M3U8"}</span><h3>${escapeHtml(p.name)}</h3><p>${escapeHtml(p.type === "xtream" ? normalizeBase(p.baseUrl).replace(/^https?:\/\//, "") : p.type === "stalker" ? normalizeBase(p.portalUrl).replace(/^https?:\/\//, "") : "Playlist URL saved")}</p>
       <span class="playlist-status"><i class="status-dot ${String(status).toLowerCase() === "active" ? "" : "inactive"}"></i>${escapeHtml(status)}${p.serverInfo ? ` • ${escapeHtml(formatExpiry(p.serverInfo.exp_date))}` : ""}</span>
       <div class="playlist-card-actions"><button class="focusable" data-open-playlist="${p.id}">${active ? "OPEN" : "CONNECT"}</button><button class="focusable" data-edit-playlist="${p.id}">EDIT</button><button class="focusable" data-delete-playlist="${p.id}">DELETE</button></div></article>`;
   }
@@ -1159,8 +1304,15 @@
     livePreviewTimer = setTimeout(() => startLivePreview(item), delay);
   }
 
-  function startLivePreview(item) {
+  async function startLivePreview(item) {
     if (!item || selectedLiveId !== item.id || !livePreviewSupported() || !el("playerScreen").classList.contains("hidden")) return;
+    const p = activePlaylist();
+    if (p?.type === "stalker" && item.stalkerCmd) {
+      setLivePreviewStatus("Authorizing Stalker preview…");
+      try { await stalkerCreateLink(p, item); }
+      catch (error) { setLivePreviewStatus(String(error.message || "Preview unavailable")); return; }
+      if (selectedLiveId !== item.id || activePlaylist()?.id !== p.id || !el("playerScreen").classList.contains("hidden")) return;
+    }
     clearTimeout(livePreviewTimeout);
     livePreviewTimeout = null;
     livePreviewPlan = streamUrlCandidates(item).slice(0, 2);
@@ -1287,10 +1439,10 @@
   }
 
   function showPlaylistModal(existing = null) {
-    const model = existing || { id: uid(), name: "", type: "xtream", baseUrl: "", username: "", password: "", m3uUrl: "" };
+    const model = existing || { id: uid(), name: "", type: "xtream", baseUrl: "", username: "", password: "", m3uUrl: "", portalUrl: "", macAddress: "" };
     showModal(`
       <div class="modal-head"><div><h2>${existing ? "Edit playlist" : "Add a playlist"}</h2><p>Credentials stay on this device</p></div><button class="modal-close focusable">✕</button></div>
-      <div class="modal-body"><div class="tabs"><button class="tab focusable ${model.type === "xtream" ? "active" : ""}" data-playlist-tab="xtream">XTREAM CODES</button><button class="tab focusable ${model.type === "m3u" ? "active" : ""}" data-playlist-tab="m3u">M3U / M3U8</button></div>
+      <div class="modal-body"><div class="tabs"><button class="tab focusable ${model.type === "xtream" ? "active" : ""}" data-playlist-tab="xtream">XTREAM CODES</button><button class="tab focusable ${model.type === "m3u" ? "active" : ""}" data-playlist-tab="m3u">M3U / M3U8</button><button class="tab focusable ${model.type === "stalker" ? "active" : ""}" data-playlist-tab="stalker">STALKER / MAG</button></div>
       <form id="playlistForm" class="form-grid">
         <div class="field full"><label>PLAYLIST NAME</label><input class="focusable" name="name" maxlength="60" value="${escapeHtml(model.name)}" placeholder="Example: Home TV" required></div>
         <div id="xtreamFields" class="field full ${model.type !== "xtream" ? "hidden" : ""}"><div class="form-grid">
@@ -1298,7 +1450,7 @@
           <div class="field"><label>USERNAME</label><input class="focusable" name="username" autocomplete="off" value="${escapeHtml(model.username)}"></div>
           <div class="field"><label>PASSWORD</label><input class="focusable" name="password" type="password" autocomplete="off" value="${escapeHtml(model.password)}"></div>
         </div></div>
-        <div id="m3uFields" class="field full ${model.type !== "m3u" ? "hidden" : ""}"><label>M3U / M3U8 URL</label><input class="focusable" name="m3uUrl" inputmode="url" value="${escapeHtml(model.m3uUrl)}" placeholder="https://example.com/playlist.m3u"><small>Direct HLS playlist URLs are supported too.</small></div>
+        <div id="m3uFields" class="field full ${model.type !== "m3u" ? "hidden" : ""}"><label>M3U / M3U8 URL</label><input class="focusable" name="m3uUrl" inputmode="url" value="${escapeHtml(model.m3uUrl)}" placeholder="https://example.com/playlist.m3u"><small>Direct HLS playlist URLs are supported too.</small></div><div id="stalkerFields" class="field full ${model.type !== "stalker" ? "hidden" : ""}"><div class="form-grid"><div class="field full"><label>PORTAL URL</label><input class="focusable" name="portalUrl" inputmode="url" value="${escapeHtml(model.portalUrl || "")}" placeholder="http://server.example/c/"></div><div class="field full"><label>REGISTERED MAG MAC ADDRESS</label><input class="focusable" name="macAddress" maxlength="17" autocomplete="off" value="${escapeHtml(model.macAddress || "")}" placeholder="00:1A:79:XX:XX:XX"><small>Use your provider-authorized MAC address.</small></div></div></div>
       </form></div>
       <div class="modal-actions"><button class="secondary-button focusable modal-close">CANCEL</button><button id="savePlaylistBtn" class="primary-button focusable">${existing ? "SAVE CHANGES" : "ADD & CONNECT"}</button></div>`);
     let selectedType = model.type;
@@ -1307,17 +1459,20 @@
       qa("[data-playlist-tab]", el("modalRoot")).forEach((x) => x.classList.toggle("active", x === tab));
       el("xtreamFields").classList.toggle("hidden", selectedType !== "xtream");
       el("m3uFields").classList.toggle("hidden", selectedType !== "m3u");
+      el("stalkerFields").classList.toggle("hidden", selectedType !== "stalker");
     });
     el("savePlaylistBtn").onclick = async () => {
       const data = new FormData(el("playlistForm"));
       const updated = {
         ...model, name: String(data.get("name") || "").trim(), type: selectedType,
-        baseUrl: normalizeBase(data.get("baseUrl")), username: String(data.get("username") || "").trim(), password: String(data.get("password") || "").trim(), m3uUrl: String(data.get("m3uUrl") || "").trim()
+        baseUrl: normalizeBase(data.get("baseUrl")), username: String(data.get("username") || "").trim(), password: String(data.get("password") || "").trim(), m3uUrl: String(data.get("m3uUrl") || "").trim(), portalUrl: String(data.get("portalUrl") || "").trim(), macAddress: String(data.get("macAddress") || "").trim().toUpperCase()
       };
       if (!updated.name) return toast("Enter a playlist name");
       if (selectedType === "xtream" && (!/^https?:\/\//i.test(updated.baseUrl) || !updated.username || !updated.password)) return toast("Enter a valid server URL, username and password");
       if (selectedType === "m3u" && !/^https?:\/\//i.test(updated.m3uUrl)) return toast("Enter a valid M3U or M3U8 URL");
+      if (selectedType === "stalker" && (!/^https?:\/\//i.test(updated.portalUrl) || !/^(?:[0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(updated.macAddress))) return toast("Enter a valid Portal URL and six-pair MAC address");
       updated.catalog = undefined;
+      updated.stalkerToken = undefined; updated.stalkerEndpoint = undefined;
       const i = state.playlists.findIndex((p) => p.id === updated.id);
       if (i >= 0) await deleteCatalogCache(updated.id);
       if (i >= 0) state.playlists[i] = updated; else state.playlists.push(updated);
@@ -1491,6 +1646,17 @@
     video.volume = Math.max(0, Math.min(1, video.volume || 1));
     el("playerScreen").classList.add("is-connecting");
     el("playPauseBtn").textContent = "Ⅱ";
+    if (activePlaylist()?.type === "stalker" && item.stalkerCmd) {
+      const p = activePlaylist();
+      setPlayerLoading("Authorizing Stalker stream…", 300);
+      stalkerCreateLink(p, item).then(() => {
+        if (token !== playbackToken || activePlaylist()?.id !== p.id) return;
+        playbackPlan = buildPlaybackPlan(item);
+        if (!playbackPlan.length) return showPlayerError("Stalker portal returned no usable stream URL");
+        tryPlaybackCandidate(token);
+      }).catch((error) => { if (token === playbackToken) showPlayerError(String(error.message || "Stalker link failed")); });
+      return;
+    }
     if (!playbackPlan.length) return showPlayerError("The server did not provide a usable stream URL");
     tryPlaybackCandidate(token);
     if (item.subtitleUrl) loadSubtitleUrl(item.subtitleUrl, "Playlist subtitles").catch(() => {});
