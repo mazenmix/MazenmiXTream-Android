@@ -6,7 +6,7 @@
   const CACHE_STORE = "catalogs";
   const CACHE_MAX_AGE = 12 * 60 * 60 * 1000;
   const CACHE_CHUNK_SIZE = 4000;
-  const PLAYBACK_SCHEMA = 3;
+  const PLAYBACK_SCHEMA = 2;
   const NETWORK_RETRY_DELAYS = [500, 1400];
   const ACCOUNT_TIMEOUT = 60000;
   const CATEGORY_TIMEOUT = 75000;
