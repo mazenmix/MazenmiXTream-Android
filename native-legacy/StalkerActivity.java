@@ -219,9 +219,10 @@ public class StalkerActivity extends Activity {
         actions.addView(sep, new LinearLayout.LayoutParams(dp(this, 10), 1));
         actions.addView(connect, new LinearLayout.LayoutParams(0, dp(this, 52), 1));
         content.addView(actions);
-        save.setOnClickListener(v -> savePortal());
+        save.setOnClickListener(v -> { if (savePortal()) showEditor(); });
         connect.setOnClickListener(v -> {
             if (!savePortal()) return;
+            showEditor(); // Refresh the saved count/list before network requests.
             openChannels();
         });
         gap(content, 12);
@@ -316,6 +317,7 @@ public class StalkerActivity extends Activity {
             try {
                 String[] endpoints = endpointCandidates(url);
                 Exception lastError = null;
+                boolean receivedHtml = false;
                 for (String endpoint : endpoints) {
                     try {
                         JSONObject handshake = api(endpoint, mac, "", "type=stb&action=handshake&token=&JsHttpRequest=1-xml");
@@ -326,9 +328,18 @@ public class StalkerActivity extends Activity {
                         token = value;
                         apiEndpoint = endpoint;
                         break;
-                    } catch (Exception e) { lastError = e; }
+                    } catch (Exception e) {
+                        lastError = e;
+                        if (e.getMessage() != null && e.getMessage().contains("HTML")) receivedHtml = true;
+                    }
                 }
-                if (token.length() == 0) throw new Exception("Stalker handshake failed: " + (lastError == null ? "No compatible endpoint" : lastError.getMessage()));
+                if (token.length() == 0) {
+                    String hint = receivedHtml
+                        ? "Portal replied with an HTML webpage, not Stalker API JSON. Check your provider's actual MAG Portal URL."
+                        : "No compatible Stalker handshake; verify portal URL, assigned MAC and portal access.";
+                    throw new Exception(hint + " Checked " + endpoints.length + " API paths. Last: "
+                        + (lastError == null ? "No compatible response" : lastError.getMessage()));
+                }
                 try { api(apiEndpoint, mac, token, "type=stb&action=get_profile&JsHttpRequest=1-xml"); } catch (Exception ignored) {}
                 JSONObject root = api(apiEndpoint, mac, token, "type=itv&action=get_all_channels&JsHttpRequest=1-xml");
                 JSONArray all = findDataArray(root);
@@ -368,14 +379,30 @@ public class StalkerActivity extends Activity {
     }
 
     private static String[] endpointCandidates(String value) throws Exception {
-        Uri uri = Uri.parse(value);
-        String base = value.replaceAll("[?#].*$", "").replaceAll("/+$", "");
-        if (base.matches("(?i).*\\/(portal|load)\\.php$")) return new String[] {base};
-        if (base.matches("(?i).*\\/c$")) base = base.substring(0, base.length() - 2);
-        if (base.matches("(?i).*\\/stalker_portal$")) {
-            return new String[] {base + "/server/load.php", base + "/portal.php"};
+        String base = value.trim().replaceAll("[?#].*$", "").replaceAll("/+$", "");
+        if (!(base.startsWith("https://") || base.startsWith("http://"))) {
+            throw new Exception("Portal URL must begin with http:// or https://");
         }
-        return new String[] {base + "/portal.php", base + "/stalker_portal/server/load.php", base + "/server/load.php"};
+        // If the provider gave the full API endpoint, respect it exactly.
+        if (base.matches("(?i).*/(portal|load)\\.php$")) return new String[] {base};
+        // Many Stalker/MAG portals expose an STB webpage at /c/, but their
+        // JSON handshake lives at a separate portal.php or server/load.php.
+        if (base.matches("(?i).*/c$")) base = base.substring(0, base.length() - 2);
+        java.util.LinkedHashSet<String> endpoints = new java.util.LinkedHashSet<>();
+        if (base.matches("(?i).*/stalker_portal$")) {
+            endpoints.add(base + "/server/load.php");
+            endpoints.add(base + "/portal.php");
+        } else {
+            endpoints.add(base + "/portal.php");
+            endpoints.add(base + "/stalker_portal/server/load.php");
+            endpoints.add(base + "/server/load.php");
+            // Alternate vendor layouts. A returned HTML welcome/login page
+            // is *not* accepted as a successful Stalker handshake.
+            endpoints.add(base + "/c/portal.php");
+            endpoints.add(base + "/c/server/load.php");
+            endpoints.add(base + "/stalker_portal/portal.php");
+        }
+        return endpoints.toArray(new String[0]);
     }
 
     private JSONObject api(String endpoint, String mac, String bearer, String query) throws Exception {
@@ -405,7 +432,22 @@ public class StalkerActivity extends Activity {
             String response = new String(output.toByteArray(), "UTF-8").trim();
             if (statusCode >= 400) throw new Exception("HTTP " + statusCode);
             if (response.startsWith("\ufeff")) response = response.substring(1);
-            return new JSONObject(response);
+            // Android JSONObject otherwise leaks the confusing exception:
+            // "Value <!DOCTYPE of type java.lang.String cannot be converted..."
+            if (response.startsWith("<") || response.toLowerCase(Locale.US).startsWith("<!doctype")) {
+                String reason = response.toLowerCase(Locale.US).contains("cloudflare")
+                    ? " (hosting/protection page)" : "";
+                throw new Exception("HTTP " + statusCode + " HTML, not Stalker JSON" + reason);
+            }
+            if (response.length() == 0) throw new Exception("HTTP " + statusCode + " empty API response");
+            if (!response.startsWith("{")) {
+                throw new Exception("HTTP " + statusCode + " response is not a Stalker JSON object");
+            }
+            try {
+                return new JSONObject(response);
+            } catch (org.json.JSONException invalid) {
+                throw new Exception("HTTP " + statusCode + " returned malformed Stalker JSON");
+            }
         } finally { connection.disconnect(); }
     }
 
