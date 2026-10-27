@@ -1,0 +1,82 @@
+name: Build original MazenmiXTream 1.1.6 with native Stalker/MAG
+
+on:
+  push:
+    branches: [feature/original-116-stalker-mag-50]
+    paths:
+      - native-legacy/**
+      - scripts/patch-original-stalker.py
+      - .github/workflows/build-original-stalker.yml
+  workflow_dispatch:
+
+jobs:
+  original-stalker-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Obtain exact ORIGINAL APK and APKtool
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build-tools build
+          curl -fL --retry 3 --max-time 120 \
+            -o build-tools/apktool.jar \
+            https://github.com/iBotPeaches/Apktool/releases/download/v2.12.1/apktool_2.12.1.jar
+          curl -fL --retry 3 --max-time 120 \
+            -o build/MazenmiXTream-original-1.1.6.apk \
+            https://github.com/mazenmix/MazenmiXTream-Android/releases/download/MazenmiXTream-v1.1.6/MazenmiXTream-v1.1.6.apk
+          echo "508130a936cd4903abc664d7f3ef0af11c17fdc2f376da8b9e2e9eeea0aab08a  build/MazenmiXTream-original-1.1.6.apk" | sha256sum -c -
+          java -jar build-tools/apktool.jar --version
+      - name: Decompile the ORIGINAL Android APK
+        run: java -jar build-tools/apktool.jar d -f -o build/decoded build/MazenmiXTream-original-1.1.6.apk
+      - name: Patch original app playlist manager and keep design
+        run: python3 scripts/patch-original-stalker.py build/decoded
+      - name: Compile native Stalker in-app implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_JAR=$(find "$ANDROID_HOME/platforms" -name android.jar | sort -V | tail -1)
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          echo "$BUILD_TOOLS" > build/android-build-tools-path
+          mkdir -p build/classes build/dex
+          javac -source 8 -target 8 -encoding UTF-8 -cp "$ANDROID_JAR" -d build/classes native-legacy/StalkerActivity.java
+          "$BUILD_TOOLS/d8" --min-api 21 --lib "$ANDROID_JAR" --output build/dex $(find build/classes -name '*.class')
+          test -s build/dex/classes.dex
+          cp build/dex/classes.dex build/decoded/classes3.dex
+          echo "NEW_NATIVE_CLASSES=$(find build/classes -name '*.class' | wc -l)"
+      - name: Rebuild same original UI and Android package
+        run: java -jar build-tools/apktool.jar b build/decoded -o build/MazenmiXTream-Original-Stalker-unsigned.apk
+      - name: Align, sign and verify Android APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS=$(cat build/android-build-tools-path)
+          "$BUILD_TOOLS/zipalign" -f -p 4 build/MazenmiXTream-Original-Stalker-unsigned.apk build/MazenmiXTream-Original-Stalker-aligned.apk
+          keytool -genkeypair -v -keystore build/staging-sign.p12 -storetype PKCS12 \
+            -storepass "MazenStalkerTemporaryPassword2026" -keypass "MazenStalkerTemporaryPassword2026" \
+            -alias original-stalker -keyalg RSA -keysize 2048 -validity 3650 \
+            -dname "CN=MazenmiXTream, OU=Android, O=MX, L=Baghdad, C=IQ"
+          "$BUILD_TOOLS/apksigner" sign --ks build/staging-sign.p12 \
+            --ks-key-alias original-stalker \
+            --ks-pass pass:MazenStalkerTemporaryPassword2026 \
+            --key-pass pass:MazenStalkerTemporaryPassword2026 \
+            --out build/MazenmiXTream-Original-v1.1.6-Stalker-50.apk \
+            build/MazenmiXTream-Original-Stalker-aligned.apk
+          "$BUILD_TOOLS/apksigner" verify --verbose build/MazenmiXTream-Original-v1.1.6-Stalker-50.apk
+          unzip -l build/MazenmiXTream-Original-v1.1.6-Stalker-50.apk | grep -F classes3.dex
+          test "$(unzip -Z1 build/MazenmiXTream-Original-v1.1.6-Stalker-50.apk | grep -Ec '^classes[0-9]*.dex$')" -eq 3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MazenmiXTream-Original-v1.1.6-Stalker-50
+          path: |
+            build/MazenmiXTream-Original-v1.1.6-Stalker-50.apk
+            build/MazenmiXTream-Original-Stalker-aligned.apk
+          if-no-files-found: error
+          retention-days: 30
