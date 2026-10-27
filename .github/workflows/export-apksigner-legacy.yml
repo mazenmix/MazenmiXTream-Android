@@ -1,0 +1,28 @@
+name: Export Android APK signing tool for local update signing
+
+on:
+  push:
+    branches: [feature/original-116-stalker-mag-50]
+    paths:
+      - .github/workflows/export-apksigner-legacy.yml
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect apksigner.jar from the hosted Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          JAR=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner.jar | sort -V | tail -1)
+          test -n "$JAR"
+          echo "Found $JAR"
+          cp "$JAR" out/apksigner.jar
+          java -jar out/apksigner.jar --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-apksigner-tool
+          path: out/apksigner.jar
+          if-no-files-found: error
