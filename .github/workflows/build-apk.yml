@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - main.js
+      - app.js
       - native/**
       - scripts/**
       - package.json
@@ -17,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,3 +40,12 @@ jobs:
           path: dist/app.apk
           if-no-files-found: error
           retention-days: 30
+      - name: Publish version 1.1.7 APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.1.7 >/dev/null 2>&1; then
+            gh release upload v1.1.7 "dist/app.apk#MazenmiXTream-v1.1.7-Stalker.apk" --clobber
+          else
+            gh release create v1.1.7 "dist/app.apk#MazenmiXTream-v1.1.7-Stalker.apk" --title "MazenmiXTream v1.1.7 — Stalker/MAG + 50+ playlists" --notes "Adds authorized MAG/Stalker Portal URL + MAC authentication, channels and create_link playback. Supports at least 50 sources without a storage-count restriction. Retains Xtream and M3U support. Install only after backing up existing playlist settings."
+          fi
