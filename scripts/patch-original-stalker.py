@@ -20,10 +20,16 @@ for path in [playlist, activity, manifest]:
         raise SystemExit("Unexpected APK structure; refusing unverified patch: " + str(path))
 
 source = playlist.read_text()
-needle = ":goto_build_slots\n    const/16 v10, 0xf"
+# Baksmali renames label targets (:goto_build_slots -> :goto_0, etc.).
+# The exact original DEX has a single 15-slot bound with register v10.
+needle = "const/16 v10, 0xf"
 if source.count(needle) != 1:
-    raise SystemExit("50 playlist fixed slot marker not found exactly once")
-source = source.replace(needle, ":goto_build_slots\n    const/16 v10, 0x32")
+    start = source.find(".method public static sanitize(")
+    end = source.find(".end method", start)
+    snippet = source[start:end] if start >= 0 and end >= 0 else source
+    candidates = re.findall(r"(?m)^\\s*const/(?:4|16)\\s+[^\\n]*0xf\\b", snippet)
+    raise SystemExit("50-slot bound mismatch: candidates=" + repr(candidates[:20]))
+source = source.replace(needle, "const/16 v10, 0x32")
 playlist.write_text(source)
 
 source = activity.read_text()
