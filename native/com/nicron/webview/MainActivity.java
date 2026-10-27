@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.net.Uri;
+import android.util.Base64;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -489,7 +490,17 @@ public final class MainActivity extends Activity {
             String scheme = route.substring(0, split).toLowerCase();
             if (!"http".equals(scheme) && !"https".equals(scheme)) return errorResponse(400, "Unsupported URL scheme");
             String upstream = scheme + "://" + route.substring(split + 1);
-            if (uri.getEncodedQuery() != null) upstream += "?" + uri.getEncodedQuery();
+            String encodedHeaders = uri.getQueryParameter("__mx_headers");
+            String rawQuery = uri.getEncodedQuery();
+            if (rawQuery != null && !rawQuery.isEmpty()) {
+                StringBuilder cleaned = new StringBuilder();
+                for (String pair : rawQuery.split("&")) {
+                    if (pair.startsWith("__mx_headers=")) continue;
+                    if (cleaned.length() > 0) cleaned.append('&');
+                    cleaned.append(pair);
+                }
+                if (cleaned.length() > 0) upstream += "?" + cleaned.toString();
+            }
 
             connection = (HttpURLConnection) new URL(upstream).openConnection();
             connection.setInstanceFollowRedirects(true);
@@ -504,6 +515,19 @@ public final class MainActivity extends Activity {
                 String name = header.getKey();
                 if (name == null || "host".equalsIgnoreCase(name) || "origin".equalsIgnoreCase(name) || "connection".equalsIgnoreCase(name) || "accept-encoding".equalsIgnoreCase(name) || "user-agent".equalsIgnoreCase(name)) continue;
                 connection.setRequestProperty(name, header.getValue());
+            }
+            // Extra headers are set natively because Android WebView blocks JavaScript Cookie headers.
+            if (encodedHeaders != null && !encodedHeaders.isEmpty()) {
+                JSONObject extra = new JSONObject(new String(Base64.decode(encodedHeaders, Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING), "UTF-8"));
+                Iterator<String> names = extra.keys();
+                while (names.hasNext()) {
+                    String name = names.next();
+                    String lower = name.toLowerCase(java.util.Locale.US);
+                    if (lower.equals("host") || lower.equals("connection") || lower.equals("content-length") ||
+                        lower.equals("transfer-encoding") || lower.equals("proxy-authorization")) continue;
+                    String value = extra.optString(name, "");
+                    if (!value.isEmpty()) connection.setRequestProperty(name, value);
+                }
             }
 
             int status = connection.getResponseCode();
@@ -766,6 +790,17 @@ public final class MainActivity extends Activity {
         @JavascriptInterface
         public String proxyUrl(String url) {
             return toProxyUrl(url);
+        }
+
+        @JavascriptInterface
+        public String proxyUrlWithHeaders(String url, String headersJson) {
+            if (url == null || !(url.startsWith("http://") || url.startsWith("https://"))) return "";
+            try {
+                String encoded = Base64.encodeToString(headersJson.getBytes("UTF-8"), Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING);
+                return toProxyUrl(url) + (url.contains("?") ? "&" : "?") + "__mx_headers=" + encoded;
+            } catch (Exception error) {
+                return "";
+            }
         }
     }
 
