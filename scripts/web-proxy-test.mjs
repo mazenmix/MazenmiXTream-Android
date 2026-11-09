@@ -75,6 +75,22 @@ test("redirects are checked on every hop", async t => {
   assert.equal(calls, 1);
 });
 
+test("the provider's approved media redirect rewrites CDN segments and keys", async t => {
+  const cdn = "http://89.47.232.60:8080";
+  const requested = [];
+  upstream(t, async url => {
+    requested.push(url);
+    if (url.startsWith(provider)) return new Response(null, { status: 302, headers: { Location: cdn + "/live/test/test/index.m3u8" } });
+    assert.equal(url, cdn + "/live/test/test/index.m3u8");
+    return new Response('#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="key.bin"\n#EXTINF:4,\nsegment.ts\n', { headers: { "Content-Type": "application/vnd.apple.mpegurl" } });
+  });
+  const result = await relay(provider + "/live/test/test/1.m3u8", { method: "GET" });
+  assert.equal(result.status, 200);
+  assert.equal(requested.length, 2);
+  const manifest = await result.text();
+  for (const file of ["key.bin", "segment.ts"]) assert.ok(manifest.includes(site + "/api/iptv?url=" + encodeURIComponent(cdn + "/live/test/test/" + file)));
+});
+
 test("redirect diagnostics expose the CDN origin without its path or credentials", async t => {
   upstream(t, async () => new Response(null, { status: 302, headers: { Location: "https://cdn.example/live/private-user/private-password/1.ts?token=private-token" } }));
   const result = await relay(provider + "/live/test/test/1.m3u8");
