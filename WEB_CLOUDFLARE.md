@@ -73,3 +73,15 @@ the CDN origin. Use **Copy error** to share this diagnostic; it excludes subscri
 credentials, stream paths and query strings. CDN origins still require approval
 in the installation allowlist or `MX_IPTV_ALLOWED_ORIGINS`. **Retry** restarts the
 selected channel without reloading the catalog.
+
+## Pages runtime artifact
+
+The checked-in `_worker.js` is the self-contained Pages advanced-mode entry.
+It delegates `/api/iptv` to `functions/api/iptv.js` and other paths to `env.ASSETS`.
+Run `npm run build:web` after changing the relay or installation origins, then
+commit the generated Worker with the source. `npm run check:web` verifies the
+artifact is current and tests the same module that Pages will deploy.
+
+An API response from the current deployment includes
+`X-MX-Release: 2026-11-09-playback-recovery`. Check this header when distinguishing
+a stale deployment from a provider playback error.
