@@ -1,10 +1,14 @@
-# MX TV Web production deployment
-
-This file was added to trigger a new deployment from the `web-cloudflare` branch after selecting it as the Cloudflare Pages production branch.
+# mx1 production deployment
 
 Cloudflare project: `mxtv1`.
 Production URL: `https://mxtv1.pages.dev/`.
+Production source branch: `web-cloudflare`.
 
-The `main` branch and Android APK are unchanged.
+This deployment intentionally replaces the IPTV web application with a black
+screen showing only `mx1`. The advanced-mode Worker handles every route,
+including former API and asset paths, without invoking the IPTV relay or assets.
+The response disables caching and includes `X-MX-Release: mx1-placeholder`.
 
-The provider from the reported connection failure is included in `config/iptv-origins.js`. Additional provider/CDN origins can be added there or through the production Pages variable `MX_IPTV_ALLOWED_ORIGINS`, without account credentials.
+Run `npm run build:web` to regenerate `_worker.js`, then `npm run check:web`.
+The Android application remains on its own branch. Previous web implementation
+files are retained for recovery but are not served by this deployment.
