@@ -12,6 +12,7 @@ async function app(handler, playlists = [profile]) {
   const { window: w } = dom;
   w.AbortSignal = AbortSignal; w.AbortController = AbortController;
   w.localStorage.setItem("mxtv.web.premium.v1", JSON.stringify({ playlists, activeId: playlists[0]?.id }));
+  w.HTMLMediaElement.prototype.canPlayType = function () { return "maybe"; };
   w.HTMLMediaElement.prototype.load = function () {};
   w.HTMLMediaElement.prototype.pause = function () {};
   w.HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
@@ -54,6 +55,40 @@ const data = url => {
   a.click('[data-route="live"]'); a.click('[data-item="live-1"]');
   assert.equal(new URL(streamUrl).origin, "https://mxtv1.pages.dev");
   assert.equal(new URL(streamUrl).searchParams.get("url"), provider + "/live/test/test/1.ts");
+  a.dom.window.close();
+}
+
+// A failed HLS source falls back once to the account's advertised TS source.
+// Old callbacks cannot tear down the replacement, and final errors redact URLs.
+{
+  const a = await app(url => !url.searchParams.get("action") ? Response.json({ user_info: { auth: 1, allowed_output_formats: ["m3u8", "ts"] } }) : data(url));
+  const hlsInstances=[];let tsSource,tsFail,destroyed=0;
+  a.w.Hls = class {
+    static isSupported() { return true; }
+    static Events = { MANIFEST_PARSED: "manifest", ERROR: "error" };
+    constructor() { this.handlers={};hlsInstances.push(this); }
+    loadSource() {} attachMedia() {}
+    on(event,handler) { this.handlers[event]=handler; }
+    destroy() { destroyed++; }
+  };
+  a.w.mpegts = {
+    isSupported: () => true, Events: { ERROR: "error" },
+    createPlayer: ({ url }) => { tsSource=url;return { on(_event,handler) { tsFail=handler; },attachMediaElement() {},load() {},play() { return Promise.resolve(); },destroy() {} }; }
+  };
+  a.click('[data-route="live"]');a.click('[data-item="live-1"]');
+  const failure={fatal:true,details:"manifestLoadError",response:{code:502,text:"do-not-copy-secret"},networkDetails:{getResponseHeader(name) { return name==="X-MX-IPTV-Error"?"redirect_origin_not_allowed":name==="X-MX-IPTV-Origin"?"https://cdn.example/private?password=do-not-copy-secret":""; }}};
+  hlsInstances[0].handlers.error(null,failure);
+  assert.equal(new URL(tsSource).searchParams.get("url"),provider+"/live/test/test/1.ts");
+  assert.equal(destroyed,1);
+  hlsInstances[0].handlers.error(null,failure);
+  assert.equal(destroyed,1,"A stale HLS error changed the active TS attempt");
+  tsFail("NetworkError","HttpStatusCodeInvalid",{code:403,msg:"do-not-copy-secret"});
+  const message=a.document.getElementById("playerError").textContent;
+  assert.match(message,/unapproved CDN/);assert.match(message,/https:\/\/cdn.example/);assert.match(message,/HTTP 403/);
+  assert.doesNotMatch(message,/do-not-copy-secret|private|password/);
+  assert.equal(a.document.getElementById("retryPlayer").classList.contains("hidden"),false);
+  a.click("#retryPlayer");assert.equal(hlsInstances.length,2);
+  a.click("#closePlayer");
   a.dom.window.close();
 }
 

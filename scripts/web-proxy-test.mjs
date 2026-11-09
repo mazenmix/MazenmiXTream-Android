@@ -22,6 +22,7 @@ test("the installation provider works without a dashboard variable and keeps its
     assert.equal(options.redirect, "manual");
     assert.equal("cache" in options, false, "Older Pages runtimes reject RequestInit.cache");
     assert.equal(options.headers.get("Cache-Control"), "no-store");
+    assert.match(options.headers.get("User-Agent"), /VLC\/3\.0\.21/);
     return Response.json({ user_info: { auth: 1 } });
   });
   const result = await relay(provider + "/player_api.php?username=test&password=test");
@@ -67,6 +68,24 @@ test("range requests preserve partial media responses", async t => {
 test("redirects are checked on every hop", async t => {
   let calls = 0;
   upstream(t, async () => { calls++; return new Response(null, { status: 302, headers: { Location: "https://unapproved.example/live.ts" } }); });
-  assert.equal((await relay(provider + "/live/test/test/1.ts")).status, 502);
+  const result = await relay(provider + "/live/test/test/1.ts");
+  assert.equal(result.status, 502);
+  assert.equal(result.headers.get("X-MX-IPTV-Error"), "redirect_origin_not_allowed");
+  assert.equal(result.headers.get("X-MX-IPTV-Origin"), "https://unapproved.example");
   assert.equal(calls, 1);
+});
+
+test("redirect diagnostics expose the CDN origin without its path or credentials", async t => {
+  upstream(t, async () => new Response(null, { status: 302, headers: { Location: "https://cdn.example/live/private-user/private-password/1.ts?token=private-token" } }));
+  const result = await relay(provider + "/live/test/test/1.m3u8");
+  const message = await result.text();
+  assert.match(message, /https:\/\/cdn.example/);
+  assert.doesNotMatch(message, /private-user|private-password|private-token/);
+});
+
+test("empty or HTML HLS responses report a format failure instead of a successful manifest", async t => {
+  upstream(t, async () => new Response("<html>Not a playlist</html>"));
+  const result = await relay(provider + "/live/test/test/1.m3u8");
+  assert.equal(result.status, 502);
+  assert.equal(result.headers.get("X-MX-IPTV-Error"), "invalid_manifest");
 });

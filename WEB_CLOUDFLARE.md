@@ -60,3 +60,16 @@ continue loading. A failed section reports its error without discarding loaded c
 
 The tests use fixtures, not subscriber credentials. Real subscription playback
 requires checking a valid account in the deployed browser.
+
+## Media request compatibility and recovery
+
+The relay uses the same IPTV User-Agent as the native MX player. A live Xtream
+channel keeps its direct source and the generated routes for its advertised
+HLS/TS formats. A failed source is stopped before trying the next, once per
+source; M3U, movies and episodes are not rewritten to guessed format URLs.
+
+Playback failures show the upstream HTTP status and, for a blocked redirect,
+the CDN origin. Use **Copy error** to share this diagnostic; it excludes subscriber
+credentials, stream paths and query strings. CDN origins still require approval
+in the installation allowlist or `MX_IPTV_ALLOWED_ORIGINS`. **Retry** restarts the
+selected channel without reloading the catalog.

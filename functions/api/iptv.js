@@ -5,7 +5,7 @@ import { IPTV_ORIGINS } from "../../config/iptv-origins.js";
 const MAX_REDIRECTS = 3;
 const MAX_URL_LENGTH = 4096;
 
-function errorResponse(message, status) {
+function errorResponse(message, status, code = "", origin = "") {
   return new Response(message, {
     status,
     headers: {
@@ -13,7 +13,9 @@ function errorResponse(message, status) {
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
       "Cross-Origin-Resource-Policy": "same-origin",
-      "Referrer-Policy": "no-referrer"
+      "Referrer-Policy": "no-referrer",
+      "X-MX-IPTV-Error": code,
+      "X-MX-IPTV-Origin": origin
     }
   });
 }
@@ -91,11 +93,13 @@ export async function onRequest({ request, env }) {
   if (!remote) {
     let origin = "";
     try { origin = new URL(incomingUrl).origin; } catch {}
-    return errorResponse("Server origin not allowed" + (origin ? ": " + origin : "") + ". Add this provider to MX_IPTV_ALLOWED_ORIGINS and redeploy.", 403);
+    return errorResponse("Server origin not allowed" + (origin ? ": " + origin : "") + ". Add this provider to MX_IPTV_ALLOWED_ORIGINS and redeploy.", 403, "origin_not_allowed", origin);
   }
 
   let upstream;
-  const headers = new Headers({ Accept: "*/*", "Cache-Control": "no-store" });
+  // Match the IPTV client headers already used by the native MX player.
+  // Some providers reject generic relay/browser user agents on media routes.
+  const headers = new Headers({ Accept: "*/*", "Cache-Control": "no-store", "User-Agent": "VLC/3.0.21 LibVLC/3.0.21 MazenmiXTream/1.1.6" });
   const range = request.headers.get("Range");
   if (range && /^bytes=\d*-\d*$/.test(range)) headers.set("Range", range);
 
@@ -115,8 +119,9 @@ export async function onRequest({ request, env }) {
       if (upstream.status < 300 || upstream.status >= 400) break;
       const location = upstream.headers.get("Location");
       if (!location || redirect === MAX_REDIRECTS) return errorResponse("Upstream redirect failed", 502);
-      const next = safeTarget(new URL(location, remote).href, allowed);
-      if (!next) return errorResponse("Stream redirected outside allowed origins. Add the provider CDN origin to MX_IPTV_ALLOWED_ORIGINS and redeploy.", 502);
+      const destination = new URL(location, remote);
+      const next = safeTarget(destination.href, allowed);
+      if (!next) return errorResponse("Stream redirected to an unapproved provider CDN: " + destination.origin + ". Add this origin to MX_IPTV_ALLOWED_ORIGINS and redeploy.", 502, "redirect_origin_not_allowed", destination.origin);
       remote = next;
     }
   } catch (error) {
@@ -128,7 +133,7 @@ export async function onRequest({ request, env }) {
       causeType: String(error?.cause?.name || ""),
       causeCode: String(error?.cause?.code || "")
     });
-    return errorResponse("The IPTV server could not be reached from Cloudflare", 502);
+    return errorResponse("The IPTV server could not be reached from Cloudflare", 502, "upstream_unreachable", remote.origin);
   }
 
   const responseHeaders = new Headers({
@@ -145,12 +150,15 @@ export async function onRequest({ request, env }) {
     if (value) responseHeaders.set(name, value);
   }
   if (!upstream.ok && upstream.status !== 206) {
-    return errorResponse("IPTV server returned HTTP " + upstream.status, upstream.status);
+    return errorResponse("IPTV server returned HTTP " + upstream.status, upstream.status, "upstream_http_error", remote.origin);
   }
 
   if (/m3u8(?:$|\?)/i.test(remote.pathname + remote.search) ||
       /(?:apple\.mpegurl|x-mpegurl)/i.test(type)) {
     const text = await upstream.text();
+    if (!text.trimStart().startsWith("#EXTM3U")) {
+      return errorResponse("The provider returned an empty or invalid HLS playlist", 502, "invalid_manifest", remote.origin);
+    }
     return new Response(rewriteManifest(text, remote, allowed, siteOrigin), {
       status: 200,
       headers: new Headers({ ...Object.fromEntries(responseHeaders), "Content-Type": "application/vnd.apple.mpegurl; charset=utf-8" })

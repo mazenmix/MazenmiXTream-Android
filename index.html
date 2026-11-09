@@ -30,8 +30,8 @@
 <div class="player hidden" id="player" role="dialog" aria-label="Media player">
  <video id="video" autoplay playsinline controls></video>
  <div class="player-bar">
-  <div><strong id="playerName"></strong><small id="playerDetails"></small><span id="playerError" style="color:#ff9f9f;font-size:11px;display:block;margin-top:7px"></span></div>
-  <div class="row-actions"><button class="secondary" id="favoritePlayer">♡ Favorite</button> <button class="primary" id="closePlayer">✕ Close player</button></div>
+  <div><strong id="playerName"></strong><small id="playerDetails"></small><span id="playerError" aria-live="polite" style="color:#ff9f9f;display:block;margin-top:7px"></span></div>
+  <div class="row-actions"><button class="secondary hidden" id="retryPlayer">↻ Retry</button> <button class="secondary hidden" id="copyPlayerError">Copy error</button> <button class="secondary" id="favoritePlayer">♡ Favorite</button> <button class="primary" id="closePlayer">✕ Close player</button></div>
  </div>
 </div>
 <script src="/vendor/hls.min.js"></script>

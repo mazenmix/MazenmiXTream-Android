@@ -108,12 +108,20 @@ function catalogItem(row,kind,group,server,p=active()){
  const base=server?.stream_base||active()?.baseUrl||"";
  const ext=kind==="live"?(server?.formats?.includes("m3u8")?"m3u8":server?.formats?.includes("ts")?"ts":"ts"):(row.container_extension||"mp4");
  const route=kind==="live"?"live":kind==="movies"?"movie":"series";
- let url="";
+ let url="";const sources=[];
  if(kind!=="series"){
   url=row.direct_source&&/^https?:\/\//.test(row.direct_source)?row.direct_source:
       base+"/"+route+"/"+encodeURIComponent(p.username)+"/"+encodeURIComponent(p.password)+"/"+encodeURIComponent(String(id))+"."+ext;
+  sources.push(url);
+  if(kind==="live"){
+   const formats=server?.formats?.length?server.formats:["ts","m3u8"];
+   for(const format of [ext,...formats]){
+    if(!["ts","m3u8"].includes(format))continue;
+    sources.push(base+"/live/"+encodeURIComponent(p.username)+"/"+encodeURIComponent(p.password)+"/"+encodeURIComponent(String(id))+"."+format);
+   }
+  }
  }
- return {key:kind+"-"+id,id,name:String(row.name||row.title||"Untitled"),kind,group:group||kind,cat:String(row.category_id||"0"),logo:String(row.stream_icon||row.stream_logo||row.cover||""),url,ext};
+ return {key:kind+"-"+id,id,name:String(row.name||row.title||"Untitled"),kind,group:group||kind,cat:String(row.category_id||"0"),logo:String(row.stream_icon||row.stream_logo||row.cover||""),url,ext,sources:[...new Set(sources)]};
 }
 let reloadController=null;
 async function reload(){
@@ -195,31 +203,89 @@ async function openSeries(item){
  }catch(error){openDialog('<div class="dialog-head"><h2>'+esc(item.name)+'</h2><button class="dialog-close" data-close>×</button></div><div class="error-note">Could not load episodes: '+esc(error.message)+'</div>')}
 }
 
+let playerSession=null;
+function clearPlayback(){
+ const session=playerSession;
+ if(session?.attempt){clearTimeout(session.attempt.timer);$("video").removeEventListener("playing",session.attempt.onPlaying);session.attempt=null}
+ if(state.playerEngine){try{state.playerEngine.destroy()}catch{}state.playerEngine=null}
+ const video=$("video");video.pause();video.removeAttribute("src");video.load();
+}
+function playbackMessage(data,fallback){
+ const network=data?.networkDetails;
+ const header=name=>{try{return network?.getResponseHeader?.(name)||network?.headers?.get?.(name)||""}catch{return ""}};
+ const code=header("X-MX-IPTV-Error");
+ let origin="";try{origin=new URL(header("X-MX-IPTV-Origin")).origin}catch{}
+ const status=Number(data?.response?.code||network?.status||0);
+ const messages={
+  origin_not_allowed:"Provider origin is not approved",
+  redirect_origin_not_allowed:"Provider redirected the stream to an unapproved CDN",
+  upstream_unreachable:"Cloudflare could not connect to the stream server",
+  upstream_http_error:"The provider rejected the stream request",
+  invalid_manifest:"The provider returned an empty or invalid HLS playlist"
+ };
+ return (messages[code]||fallback)+(status?" (HTTP "+status+")":"")+(origin?" — "+origin:"");
+}
+function startPlayback(session){
+ clearPlayback();
+ if(playerSession!==session)return;
+ const source=session.sources[session.index];
+ let src="",format="Video";
+ const video=$("video");
+ const attempt={timer:null,onPlaying:null};session.attempt=attempt;
+ const current=()=>playerSession===session&&session.attempt===attempt;
+ const fail=message=>{
+  if(!current())return;
+  session.errors.push(format+": "+message);
+  clearPlayback();
+  if(session.index+1<session.sources.length){
+   session.index++;$("playerError").textContent="Trying another stream…";startPlayback(session);
+  }else{
+   $("playerError").textContent=session.errors.join(" | ");
+   $("retryPlayer").classList.remove("hidden");$("copyPlayerError").classList.remove("hidden");
+  }
+ };
+ attempt.fail=fail;
+ attempt.onPlaying=()=>{if(current()){clearTimeout(attempt.timer);$("playerError").textContent=""}};
+ video.addEventListener("playing",attempt.onPlaying,{once:true});
+ attempt.timer=window.setTimeout(()=>fail("The stream did not start within 20 seconds"),20000);
+ const play=()=>Promise.resolve(video.play()).catch(error=>{
+  if(!current())return;
+  if(error.name==="NotAllowedError"){clearTimeout(attempt.timer);$("playerError").textContent="Press Play to start the stream."}
+  else if(error.name!=="AbortError")fail("The browser could not start this stream");
+ });
+ try{
+  src=mediaUrl(source);
+  const playbackUrl=new URL(src,location.href).searchParams.get("url")||source;
+  format=/\.m3u8(?:\?|$)/i.test(playbackUrl)?"HLS":/\.ts(?:\?|$)/i.test(playbackUrl)?"TS":"Video";
+  if(format==="HLS"&&window.Hls?.isSupported()){
+   const hls=new Hls({enableWorker:true,lowLatencyMode:true,manifestLoadingTimeOut:10000,manifestLoadingMaxRetry:0,xhrSetup(xhr,url){xhr.open("GET",mediaUrl(url),true)},fetchSetup(ctx,params){return new Request(mediaUrl(ctx.url),params)}});
+   state.playerEngine=hls;
+   hls.on(Hls.Events.MANIFEST_PARSED,()=>{if(current())play()});
+   hls.on(Hls.Events.ERROR,(_,data)=>{if(data.fatal)fail(playbackMessage(data,"HLS "+String(data.details||"playback failed")))});
+   hls.loadSource(src);hls.attachMedia(video);
+  }else if(format==="TS"&&window.mpegts?.isSupported()){
+   const engine=window.mpegts.createPlayer({type:"mpegts",isLive:session.item.kind==="live",url:src},{enableWorker:true,lazyLoad:false});
+   state.playerEngine=engine;
+   engine.on(window.mpegts.Events.ERROR,(_type,_detail,info)=>fail("The TS stream could not be loaded"+(Number(info?.code)>0?" (HTTP "+Number(info.code)+")":"")));
+   engine.attachMediaElement(video);engine.load();Promise.resolve(engine.play()).catch(error=>{if(current()&&error.name!=="AbortError")fail("The browser could not start the TS stream")});
+  }else if(format==="HLS"&&!video.canPlayType("application/vnd.apple.mpegurl"))fail("This browser does not support HLS playback");
+  else if(format==="TS")fail("This browser does not support MPEG-TS playback");
+  else {video.src=src;play()}
+ }catch{fail("The player could not initialize this stream")}
+}
 function openPlayer(it){
  stopPlayer();
  $("playerName").textContent=it.name;$("playerDetails").textContent=it.group;
- $("playerError").textContent="";$("player").classList.remove("hidden");
- state.player=it;const video=$("video");video.pause();video.removeAttribute("src");video.load();
- if(!it.url){$("playerError").textContent="This series needs an episode selection from the server.";return}
- const src=mediaUrl(it.url);
- const playbackUrl=new URL(src,location.href).searchParams.get("url")||it.url;
- try{
-  if(/\.m3u8(?:\?|$)/i.test(playbackUrl)&&window.Hls?.isSupported()){
-    const hls=new Hls({enableWorker:true,lowLatencyMode:true,xhrSetup(xhr,url){xhr.open("GET",mediaUrl(url),true)},fetchSetup(ctx,params){return new Request(new URL(mediaUrl(ctx.url),location.href),params)}});
-    hls.loadSource(src);hls.attachMedia(video);state.playerEngine=hls;
-    hls.on(Hls.Events.MANIFEST_PARSED,()=>video.play().catch(()=>{}));hls.on(Hls.Events.ERROR,(_,data)=>{if(data.fatal)$("playerError").textContent="HLS playback failed: "+data.details});
-  }else if(/\.ts(?:\?|$)/i.test(playbackUrl)&&window.mpegts?.isSupported()){
-    const engine=window.mpegts.createPlayer({type:"mpegts",isLive:it.kind==="live",url:src},{enableWorker:true,lazyLoad:false});
-    state.playerEngine=engine;
-    engine.on(window.mpegts.Events.ERROR,()=>{$("playerError").textContent="MPEG-TS playback failed. The stream may be offline or use an unsupported codec."});
-    engine.attachMediaElement(video);engine.load();Promise.resolve(engine.play()).catch(()=>{});
-  }else {video.src=src;video.play().catch(()=>{});}
- }catch(error){$("playerError").textContent=error.message}
+ $("playerError").textContent="";$("retryPlayer").classList.add("hidden");$("copyPlayerError").classList.add("hidden");$("player").classList.remove("hidden");
+ state.player=it;
+ const sources=[...new Set([it.url,...(it.sources||[])].filter(Boolean))];
+ if(!sources.length){$("playerError").textContent="This title has no playable stream.";return}
+ playerSession={item:it,sources,index:0,errors:[],attempt:null};startPlayback(playerSession);
 }
 function stopPlayer(){
- if(state.playerEngine){try{state.playerEngine.destroy()}catch{}state.playerEngine=null}
- const video=$("video");video.pause();video.removeAttribute("src");video.load();$("player").classList.add("hidden");state.player=null;
+ clearPlayback();playerSession=null;$("player").classList.add("hidden");state.player=null;
 }
+
 document.addEventListener("click",ev=>{
  const target=ev.target.closest("button");if(!target)return;
  if(target.id==="homeButton"||target.dataset.route){show(target.dataset.route||"home");return}
@@ -233,10 +299,17 @@ document.addEventListener("click",ev=>{
  if(target.dataset.cat){state.category=target.dataset.cat;render();return}
  if(target.dataset.item){const it=[...state.catalog.live,...state.catalog.movies,...state.catalog.series].find(x=>x.key===target.dataset.item);if(it){if(it.kind==="series")openSeries(it);else openPlayer(it)}return}
  if(target.dataset.episode){const ep=state.episodeItems.find(x=>x.key===target.dataset.episode);if(ep){closeDialog();openPlayer(ep)}return}
+ if(target.id==="retryPlayer"){if(state.player)openPlayer(state.player);return}
+ if(target.id==="copyPlayerError"){
+  const message="MX TV playback error\n"+$("playerError").textContent;
+  if(navigator.clipboard?.writeText)navigator.clipboard.writeText(message).then(()=>notify("Error copied"),()=>notify("Select the error text to copy it"));
+  else notify("Select the error text to copy it");
+  return;
+ }
  if(target.id==="closePlayer"){stopPlayer();return}
  if(target.id==="favoritePlayer"){const key=state.player?.key;if(!key)return;state.favorites=state.favorites.includes(key)?state.favorites.filter(x=>x!==key):[...state.favorites,key];save();notify("Favorites updated");return}
 });
 document.addEventListener("keydown",ev=>{if(ev.key==="Escape"){if(!$("player").classList.contains("hidden"))stopPlayer();else closeDialog()}});
-$("video").addEventListener("error",()=>{$("playerError").textContent="This stream is unavailable in the browser. Check formats and Cloudflare proxy."});
+$("video").addEventListener("error",()=>{if($("video").error)playerSession?.attempt?.fail("The browser could not decode or load this stream")});
 load();render();if(active())reload();
 })();
