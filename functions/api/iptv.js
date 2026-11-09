@@ -1,6 +1,7 @@
 // Cloudflare Pages Function for the browser-only MazenmiXTream build.
 // This is intentionally an allowlisted relay, NOT an unrestricted open proxy.
 // Configure MX_IPTV_ALLOWED_ORIGINS in Cloudflare Pages > Settings > Variables.
+import { IPTV_ORIGINS } from "../../config/iptv-origins.js";
 const MAX_REDIRECTS = 3;
 const MAX_URL_LENGTH = 4096;
 
@@ -18,12 +19,13 @@ function errorResponse(message, status) {
 }
 
 function allowedOrigins(env) {
-  return new Set(String(env.MX_IPTV_ALLOWED_ORIGINS || "")
+  return new Set([...IPTV_ORIGINS, ...String(env.MX_IPTV_ALLOWED_ORIGINS || "")
     .split(/[\s,;]+/)
-    .filter(Boolean)
+    .filter(Boolean)]
     .map((entry) => {
       try {
         const url = new URL(entry.includes("://") ? entry : "http://" + entry);
+        if (url.protocol === "https:" && url.port === "2052") url.protocol = "http:";
         return url.origin;
       } catch { return ""; }
     }).filter(Boolean));
@@ -86,7 +88,11 @@ export async function onRequest({ request, env }) {
   } catch { return errorResponse("Invalid request", 400); }
 
   let remote = safeTarget(incomingUrl, allowed);
-  if (!remote) return errorResponse("Server origin not allowed. Review MX_IPTV_ALLOWED_ORIGINS.", 403);
+  if (!remote) {
+    let origin = "";
+    try { origin = new URL(incomingUrl).origin; } catch {}
+    return errorResponse("Server origin not allowed" + (origin ? ": " + origin : "") + ". Add this provider to MX_IPTV_ALLOWED_ORIGINS and redeploy.", 403);
+  }
 
   let upstream;
   const headers = new Headers({ Accept: "*/*" });
@@ -95,18 +101,21 @@ export async function onRequest({ request, env }) {
 
   try {
     for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect++) {
-      upstream = await fetch(remote.href, {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      try { upstream = await fetch(remote.href, {
         method: "GET",
         headers,
         redirect: "manual",
         cache: "no-store",
+        signal: controller.signal,
         cf: { cacheTtl: 0, cacheEverything: false }
-      });
+      }); } finally { clearTimeout(timeout); }
       if (upstream.status < 300 || upstream.status >= 400) break;
       const location = upstream.headers.get("Location");
       if (!location || redirect === MAX_REDIRECTS) return errorResponse("Upstream redirect failed", 502);
       const next = safeTarget(new URL(location, remote).href, allowed);
-      if (!next) return errorResponse("Stream redirected outside allowed origins", 502);
+      if (!next) return errorResponse("Stream redirected outside allowed origins. Add the provider CDN origin to MX_IPTV_ALLOWED_ORIGINS and redeploy.", 502);
       remote = next;
     }
   } catch (error) {

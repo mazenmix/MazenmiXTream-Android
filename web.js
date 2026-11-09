@@ -3,7 +3,7 @@
 const KEY="mxtv.web.premium.v1", LEGACY="mazenmixtream.state.v1";
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
-const state={view:"home",section:"live",category:"all",query:"",catalog:{live:[],movies:[],series:[],liveCats:[],movieCats:[],seriesCats:[]},server:null,loading:false,player:null,playerEngine:null,episodeItems:[],playlists:[],activeId:null,favorites:[]};
+const state={view:"home",section:"live",category:"all",query:"",catalog:{live:[],movies:[],series:[],liveCats:[],movieCats:[],seriesCats:[]},server:null,loading:false,error:"",warnings:[],player:null,playerEngine:null,episodeItems:[],playlists:[],activeId:null,favorites:[]};
 function load(){
  let previous=null;try{previous=JSON.parse(localStorage.getItem(KEY)||"null")}catch{}
  if(previous){state.playlists=Array.isArray(previous.playlists)?previous.playlists:[];state.activeId=previous.activeId||state.playlists[0]?.id||null;state.favorites=Array.isArray(previous.favorites)?previous.favorites:[];return}
@@ -51,7 +51,8 @@ function section(){
  let shell=pageHead(title)+'<div class="layout"><nav class="sidebar"><button class="nav-button '+(state.view==="live"?"active":"")+'" data-route="live">◉ Live TV</button><button class="nav-button '+(state.view==="movies"?"active":"")+'" data-route="movies">▶ Movies</button><button class="nav-button '+(state.view==="series"?"active":"")+'" data-route="series">▤ Series</button><button class="nav-button '+(state.view==="favorites"?"active":"")+'" data-route="favorites">♡ Favorites</button><button class="nav-button" data-route="manage">⚙ Playlists</button></nav><div class="panel">';
  shell+='<div class="controls"><input id="search" type="search" placeholder="Search '+esc(title)+'" aria-label="Search channels and titles" value="'+esc(state.query)+'"><span style="font-size:12px;color:#a4a4aa">'+it.length.toLocaleString()+' items</span></div>';
  if(cats.length) shell+='<div class="controls" id="categoryList"><button class="pill '+(state.category==="all"?"active":"")+'" data-cat="all">All</button>'+cats.map(c=>'<button class="pill '+(state.category===String(c.id)?"active":"")+'" data-cat="'+esc(c.id)+'">'+esc(c.name)+'</button>').join("")+'</div>';
- if(state.loading) shell+='<div class="empty"><b>Loading your library…</b><span>Connecting to your IPTV provider</span></div>';
+ if(state.loading&&!it.length) shell+='<div class="empty"><b>Loading your library…</b><span>Connecting to your IPTV provider</span></div>';
+ else if(state.error) shell+='<div class="empty"><b>Connection failed</b><span>Check the error above, edit your playlist or retry.</span><button class="primary" data-route="manage">Manage playlists</button></div>';
  else if(!active()) shell+='<div class="empty"><b>No IPTV playlist added</b><span>Connect your own Xtream or M3U account to begin.</span><button class="primary" data-route="manage">Add playlist</button></div>';
  else if(!it.length) shell+='<div class="empty"><b>No items available</b><span>'+(state.server?"Try another category or search.":"Select Refresh to load your library.")+'</span><button class="primary" data-refresh>Refresh library</button></div>';
  else shell+='<div class="media-grid">'+it.slice(0,400).map(mediaCard).join("")+'</div>'+(it.length>400?'<p class="notice">Showing the first 400 results. Use search to narrow your library.</p>':"");
@@ -63,10 +64,15 @@ function manage(){
  (state.playlists.length?state.playlists.map(p=>'<div class="list-row"><div><strong>'+esc(p.name)+'</strong><div class="sub">'+esc(p.type==="xtream"?"Xtream Codes": "M3U playlist")+'</div></div><div class="row-actions"><button class="secondary" data-activate="'+esc(p.id)+'">'+(p.id===state.activeId?"Selected":"Use")+'</button><button class="secondary" data-edit="'+esc(p.id)+'">Edit</button><button class="secondary" data-remove="'+esc(p.id)+'">Delete</button></div></div>').join(""):'<div class="empty"><b>No playlists yet</b><span>Add your Xtream Codes account or M3U URL.</span></div>')+
  '<div class="dialog-actions"><button class="secondary" data-refresh>↻ Reload catalog</button></div></div>';
 }
-function settings(){return pageHead("Settings")+'<div class="panel"><h2>MX TV — Browser Edition</h2><p class="notice">This is an independent web implementation based on the Android app\'s premium MX TV design. The original APK is unchanged.</p><div class="list-row"><div><strong>Current playlist</strong><div class="sub">'+esc(active()?.name||"Not connected")+'</div></div><button class="secondary" data-route="manage">Manage</button></div><div class="list-row"><div><strong>Refresh IPTV library</strong><div class="sub">Download current channels, movies, series</div></div><button class="secondary" data-refresh>Refresh</button></div><div class="list-row"><div><strong>Clear web cache</strong><div class="sub">Your saved playlist settings remain</div></div><button class="secondary" data-clear>Clear</button></div><div class="error-note">IPTV API loading requires MX_IPTV_ALLOWED_ORIGINS to be configured for Cloudflare Pages. Media playback also depends on formats supported by your browser and provider.</div></div>'}
+function settings(){return pageHead("Settings")+'<div class="panel"><h2>MX TV — Browser Edition</h2><p class="notice">This is an independent web implementation based on the Android app\'s premium MX TV design. The original APK is unchanged.</p><div class="list-row"><div><strong>Current playlist</strong><div class="sub">'+esc(active()?.name||"Not connected")+'</div></div><button class="secondary" data-route="manage">Manage</button></div><div class="list-row"><div><strong>Refresh IPTV library</strong><div class="sub">Download current channels, movies, series</div></div><button class="secondary" data-refresh>Refresh</button></div><div class="list-row"><div><strong>Clear web cache</strong><div class="sub">Your saved playlist settings remain</div></div><button class="secondary" data-clear>Clear</button></div><div class="error-note">Add your provider account in Playlists, then refresh the library. Playback availability depends on your subscription and the formats offered by your provider.</div></div>'}
+function connectionNotice(){
+ if(state.error)return '<div class="error-note" role="alert"><b>Playlist did not load:</b> '+esc(state.error)+' <button class="secondary" data-refresh>Retry</button></div>';
+ if(state.warnings.length)return '<div class="error-note" role="status">Some library sections could not load: '+esc(state.warnings.join("; "))+' <button class="secondary" data-refresh>Retry</button></div>';
+ return "";
+}
 function render(){
  $("homeButton").setAttribute("aria-label","Return home");
- $("main").innerHTML=state.view==="home"?home():["live","movies","series","favorites"].includes(state.view)?section():state.view==="manage"?manage():state.view==="settings"?settings():pageHead("Catch Up")+'<div class="panel empty"><b>Catch Up</b><span>Catch-up playback appears when your provider exposes replay information.</span><button class="secondary" data-route="live">Browse channels</button></div>';
+ $("main").innerHTML=connectionNotice()+(state.view==="home"?home():["live","movies","series","favorites"].includes(state.view)?section():state.view==="manage"?manage():state.view==="settings"?settings():pageHead("Catch Up")+'<div class="panel empty"><b>Catch Up</b><span>Catch-up playback appears when your provider exposes replay information.</span><button class="secondary" data-route="live">Browse channels</button></div>');
  const search=$("search");if(search){search.addEventListener("input",ev=>{const at=ev.target.selectionStart;state.query=ev.target.value;render();const n=$("search");n?.focus();try{n?.setSelectionRange(at,at)}catch{}})}
  const p=active();$("accountName").textContent=p?.name||"No playlist";
 }
@@ -86,17 +92,22 @@ function openPlaylistForm(id=null){
 }
 function getUrl(base,params){const u=new URL(base.replace(/\/+$/,"")+"/player_api.php");for(const [k,v] of Object.entries(params))u.searchParams.set(k,String(v));return u.href}
 async function proxy(url,{text=false,signal=null}={}){
- const response=await fetch("/api/iptv",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:normalize(url)}),signal});
+ const response=await fetch("/api/iptv",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:normalize(url)}),signal:signal?AbortSignal.any([signal,AbortSignal.timeout(30000)]):AbortSignal.timeout(30000)});
  if(!response.ok){const detail=(await response.text()).slice(0,240);throw new Error(detail||"Server returned HTTP "+response.status)}
- return text?response.text():response.json();
+ if(text)return response.text();
+ try{return await response.json()}catch{throw new Error("Provider did not return valid Xtream JSON. Check the server address and login.")}
 }
-function mediaUrl(original){return "/api/iptv?url="+encodeURIComponent(normalize(original))}
-function catalogItem(row,kind,group,server){
+function mediaUrl(original){
+ const url=new URL(normalize(original),location.href);
+ if(url.origin===location.origin&&url.pathname==="/api/iptv")return url.href;
+ // MPEG-TS fetches from a blob Worker, which cannot resolve relative URLs.
+ return location.origin+"/api/iptv?url="+encodeURIComponent(url.href);
+}
+function catalogItem(row,kind,group,server,p=active()){
  const id=kind==="series"?row.series_id:row.stream_id;
  const base=server?.stream_base||active()?.baseUrl||"";
  const ext=kind==="live"?(server?.formats?.includes("m3u8")?"m3u8":server?.formats?.includes("ts")?"ts":"ts"):(row.container_extension||"mp4");
  const route=kind==="live"?"live":kind==="movies"?"movie":"series";
- const p=active();
  let url="";
  if(kind!=="series"){
   url=row.direct_source&&/^https?:\/\//.test(row.direct_source)?row.direct_source:
@@ -104,51 +115,59 @@ function catalogItem(row,kind,group,server){
  }
  return {key:kind+"-"+id,id,name:String(row.name||row.title||"Untitled"),kind,group:group||kind,cat:String(row.category_id||"0"),logo:String(row.stream_icon||row.stream_logo||row.cover||""),url,ext};
 }
+let reloadController=null;
 async function reload(){
+ reloadController?.abort();
+ const controller=new AbortController();reloadController=controller;
  const p=active();
- if(!p){render();return}
+ stopPlayer();
+ state.error="";state.warnings=[];state.episodeItems=[];
+ if(!p){state.loading=false;state.server=null;state.catalog={live:[],movies:[],series:[],liveCats:[],movieCats:[],seriesCats:[]};status("Not connected");render();return}
+ const request=(url,options={})=>proxy(url,{...options,signal:controller.signal});
  state.loading=true;state.server=null;state.catalog={live:[],movies:[],series:[],liveCats:[],movieCats:[],seriesCats:[]};status("Connecting…");render();
  try{
   if(p.type==="m3u"){
-   const response=await proxy(p.m3uUrl,{text:true});
+   const response=await request(p.m3uUrl,{text:true});
    const rows=response.split(/\r?\n/);let label="Channel",group="Live TV",logo="";
    if(!response.includes("#EXTM3U"))throw Error("Provider did not return a valid M3U playlist");
-   for(const line of rows){
+   for(const rawLine of rows){
+    const line=rawLine.trim();
     if(line.startsWith("#EXTINF")){label=line.split(",").slice(1).join(",")||"Channel";group=line.match(/group-title="([^"]+)"/)?.[1]||"Live TV";logo=line.match(/tvg-logo="([^"]+)"/)?.[1]||""}
     else if(/^https?:\/\//i.test(line)){state.catalog.live.push({key:"live-"+state.catalog.live.length,id:state.catalog.live.length,name:label,kind:"live",cat:group,group,logo,url:line.trim()})}
    }
    state.catalog.liveCats=[...new Set(state.catalog.live.map(x=>x.group))].map(x=>({id:x,name:x}));
   }else{
    const credentials={username:p.username,password:p.password};
-   const account=await proxy(getUrl(p.baseUrl,credentials));
-   if(!account.user_info)throw Error("Xtream provider did not accept this login");
-   const serverInfo=account.server_info||{};
-   const streamHost=serverInfo.url||new URL(p.baseUrl).hostname;
-   const proto=serverInfo.server_protocol||new URL(p.baseUrl).protocol.replace(":","");
-   let streamBase=streamHost.includes("://")?streamHost:proto+"://"+streamHost;
-   try{const u=new URL(streamBase);if(serverInfo.port&&!u.port)u.port=serverInfo.port;streamBase=normalize(u.origin)}catch{streamBase=p.baseUrl}
+   const account=await request(getUrl(p.baseUrl,credentials));
+   if(!account?.user_info || String(account.user_info.auth??"1")==="0")throw Error("Xtream provider did not accept this login. Check your username and password.");
+   if(account.user_info.status&&String(account.user_info.status).toLowerCase()!=="active")throw Error("Your IPTV subscription is "+String(account.user_info.status)+". Contact your provider.");
+   // The configured portal is reachable through the relay. Panels often advertise
+   // an internal address, another port or a different alias in server_info.
+   const streamBase=normalize(p.baseUrl);
    const formats=Array.isArray(account.user_info.allowed_output_formats)?account.user_info.allowed_output_formats.map(String):[];
    state.server={stream_base:streamBase,formats,user:account.user_info};
-   const lookups=[["get_live_categories","liveCats"],["get_vod_categories","movieCats"],["get_series_categories","seriesCats"],["get_live_streams","live"],["get_vod_streams","movies"],["get_series","series"]];
+   const lookups=[["get_live_categories","liveCats"],["get_live_streams","live"],["get_vod_categories","movieCats"],["get_vod_streams","movies"],["get_series_categories","seriesCats"],["get_series","series"]];
    for(const [action,target] of lookups){
     try{
-      const rows=await proxy(getUrl(p.baseUrl,{...credentials,action}));
-      if(!Array.isArray(rows))continue;
+      const rows=await request(getUrl(p.baseUrl,{...credentials,action}));
+      if(!Array.isArray(rows))throw Error("Provider returned an invalid library response");
       if(target.endsWith("Cats"))state.catalog[target]=rows.map(c=>({id:String(c.category_id),name:c.category_name||"Other"}));
       else {
        const cats=Object.fromEntries(state.catalog[target==="live"?"liveCats":target==="movies"?"movieCats":"seriesCats"].map(c=>[c.id,c.name]));
-       state.catalog[target]=rows.map(row=>catalogItem(row,target,cats[String(row.category_id)]||target,state.server));
+       state.catalog[target]=rows.map(row=>catalogItem(row,target,cats[String(row.category_id)]||target,state.server,p));
       }
-      status("Loaded "+state.catalog.live.length+" channels");
-    }catch(e){console.warn("MX TV could not load "+target+": "+e.message)}
+      status("Loaded "+state.catalog.live.length+" channels");render();
+    }catch(e){if(controller.signal.aborted)return;state.warnings.push(target+": "+e.message)}
    }
-   if(![state.catalog.live,state.catalog.movies,state.catalog.series].some(x=>x.length))throw Error("No library received. Check Cloudflare allowlist and Xtream settings.");
+   if(![state.catalog.live,state.catalog.movies,state.catalog.series].some(x=>x.length))throw Error(state.warnings[0]||"The provider returned an empty library for this account.");
   }
-  status("Connected","ready");notify("Playlist library loaded");render();
+  status("Connected","ready");notify("Playlist library loaded");
  }catch(error){
-  console.warn("MX TV connection error:",error.message);
-  status("Connection unavailable","error");render();$("main").insertAdjacentHTML("afterbegin",'<div class="error-note"><b>Playlist did not load:</b> '+esc(error.message)+' <button class="secondary" data-refresh>Retry</button></div>');
- }finally{state.loading=false}
+  if(controller.signal.aborted)return;
+  state.error=error.name==="TimeoutError"?"The IPTV server took too long to respond. Retry or check your provider.":error.message;
+  status("Connection unavailable","error");
+ }finally{if(reloadController===controller){state.loading=false;render()}}
+
 }
 
 async function openSeries(item){
@@ -177,19 +196,23 @@ async function openSeries(item){
 }
 
 function openPlayer(it){
+ stopPlayer();
  $("playerName").textContent=it.name;$("playerDetails").textContent=it.group;
  $("playerError").textContent="";$("player").classList.remove("hidden");
  state.player=it;const video=$("video");video.pause();video.removeAttribute("src");video.load();
  if(!it.url){$("playerError").textContent="This series needs an episode selection from the server.";return}
  const src=mediaUrl(it.url);
+ const playbackUrl=new URL(src,location.href).searchParams.get("url")||it.url;
  try{
-  if(/\.m3u8(?:\?|$)/i.test(it.url)&&window.Hls?.isSupported()){
-    const hls=new Hls({enableWorker:true,lowLatencyMode:true,xhrSetup(xhr,url){xhr.open("GET",url.startsWith(location.origin)?url:mediaUrl(url),true)},fetchSetup(ctx,params){return new Request(ctx.url.startsWith(location.origin)?ctx.url:mediaUrl(ctx.url),params)}});
+  if(/\.m3u8(?:\?|$)/i.test(playbackUrl)&&window.Hls?.isSupported()){
+    const hls=new Hls({enableWorker:true,lowLatencyMode:true,xhrSetup(xhr,url){xhr.open("GET",mediaUrl(url),true)},fetchSetup(ctx,params){return new Request(new URL(mediaUrl(ctx.url),location.href),params)}});
     hls.loadSource(src);hls.attachMedia(video);state.playerEngine=hls;
     hls.on(Hls.Events.MANIFEST_PARSED,()=>video.play().catch(()=>{}));hls.on(Hls.Events.ERROR,(_,data)=>{if(data.fatal)$("playerError").textContent="HLS playback failed: "+data.details});
-  }else if(/\.ts(?:\?|$)/i.test(it.url)&&window.mpegts?.isSupported()){
+  }else if(/\.ts(?:\?|$)/i.test(playbackUrl)&&window.mpegts?.isSupported()){
     const engine=window.mpegts.createPlayer({type:"mpegts",isLive:it.kind==="live",url:src},{enableWorker:true,lazyLoad:false});
-    engine.attachMediaElement(video);engine.load();engine.play();state.playerEngine=engine;
+    state.playerEngine=engine;
+    engine.on(window.mpegts.Events.ERROR,()=>{$("playerError").textContent="MPEG-TS playback failed. The stream may be offline or use an unsupported codec."});
+    engine.attachMediaElement(video);engine.load();Promise.resolve(engine.play()).catch(()=>{});
   }else {video.src=src;video.play().catch(()=>{});}
  }catch(error){$("playerError").textContent=error.message}
 }
@@ -204,7 +227,7 @@ document.addEventListener("click",ev=>{
  if(target.dataset.new!==undefined){openPlaylistForm();return}
  if(target.dataset.edit){openPlaylistForm(target.dataset.edit);return}
  if(target.dataset.activate){state.activeId=target.dataset.activate;save();show("home");reload();return}
- if(target.dataset.remove){if(confirm("Remove this playlist from this browser?")){state.playlists=state.playlists.filter(p=>p.id!==target.dataset.remove);if(state.activeId===target.dataset.remove)state.activeId=state.playlists[0]?.id||null;save();show("manage")}return}
+ if(target.dataset.remove){if(confirm("Remove this playlist from this browser?")){state.playlists=state.playlists.filter(p=>p.id!==target.dataset.remove);if(state.activeId===target.dataset.remove)state.activeId=state.playlists[0]?.id||null;save();show("manage");reload()}return}
  if(target.dataset.refresh!==undefined){reload();return}
  if(target.dataset.clear!==undefined){state.catalog={live:[],movies:[],series:[],liveCats:[],movieCats:[],seriesCats:[]};render();notify("Web catalog cleared");return}
  if(target.dataset.cat){state.category=target.dataset.cat;render();return}
@@ -215,5 +238,5 @@ document.addEventListener("click",ev=>{
 });
 document.addEventListener("keydown",ev=>{if(ev.key==="Escape"){if(!$("player").classList.contains("hidden"))stopPlayer();else closeDialog()}});
 $("video").addEventListener("error",()=>{$("playerError").textContent="This stream is unavailable in the browser. Check formats and Cloudflare proxy."});
-load();render();
+load();render();if(active())reload();
 })();

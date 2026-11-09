@@ -8,7 +8,9 @@ is built from `main` and is not modified by these changes.
 1. Open the existing Cloudflare Pages project, **mxtv1**.
 2. Under **Settings > Builds & deployments > Production branch**, switch
    from `main` to `web-cloudflare`. Keep build output directory `.`.
-3. Under **Settings > Variables and Secrets**, add a plain-text environment
+3. The installation provider in `config/iptv-origins.js` is included automatically.
+   To add more provider/CDN origins, update that list or, under
+   **Settings > Variables and Secrets**, add a plain-text environment
    variable named `MX_IPTV_ALLOWED_ORIGINS` for **Production** (and Preview
    if preview testing is wanted). Its value is a comma-separated list of
    the server's exact original origins, for example
@@ -31,7 +33,8 @@ access to the site and the provider account.
 
 ## Security and limitations
 
-- No open proxy: every upstream origin must be explicitly allowlisted.
+- Every upstream origin must be explicitly allowlisted, either in the installation
+  configuration or in `MX_IPTV_ALLOWED_ORIGINS`. The two lists are combined.
 - Only HTTP and HTTPS targets, no localhost/private local destinations.
 - Unapproved redirects are blocked.
 - Response caching is disabled.
@@ -42,3 +45,18 @@ access to the site and the provider account.
 - If the server redirects to a CDN, add that CDN's exact origin to the
   Cloudflare allowlist and redeploy.
 - `main` and the existing APK are unchanged.
+
+## Web validation
+
+Run `npm run check:web` after installing the development dependencies. This checks
+provider admission, denied targets, HLS segment/key rewriting, Range responses,
+automatic reconnection, channel rendering, persistent errors/retry, authentication,
+M3U playback URLs, player cleanup and cancellation when switching accounts.
+
+The configured provider URL is also the default media base; `server_info` aliases
+are not substituted into playback URLs. Provider `direct_source` URLs still work
+when their origins are approved. Live channels appear while other library sections
+continue loading. A failed section reports its error without discarding loaded channels.
+
+The tests use fixtures, not subscriber credentials. Real subscription playback
+requires checking a valid account in the deployed browser.

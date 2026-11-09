@@ -7,4 +7,4 @@ Production URL: `https://mxtv1.pages.dev/`.
 
 The `main` branch and Android APK are unchanged.
 
-Before using Xtream or M3U APIs, set the production Pages variable `MX_IPTV_ALLOWED_ORIGINS` to the exact permitted upstream IPTV server origin(s), without account credentials.
+The provider from the reported connection failure is included in `config/iptv-origins.js`. Additional provider/CDN origins can be added there or through the production Pages variable `MX_IPTV_ALLOWED_ORIGINS`, without account credentials.
