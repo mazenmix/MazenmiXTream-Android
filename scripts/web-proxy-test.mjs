@@ -20,7 +20,8 @@ test("the installation provider works without a dashboard variable and keeps its
   upstream(t, async (url, options) => {
     assert.equal(url, provider + "/player_api.php?username=test&password=test");
     assert.equal(options.redirect, "manual");
-    assert.equal(options.cache, "no-store");
+    assert.equal("cache" in options, false, "Older Pages runtimes reject RequestInit.cache");
+    assert.equal(options.headers.get("Cache-Control"), "no-store");
     return Response.json({ user_info: { auth: 1 } });
   });
   const result = await relay(provider + "/player_api.php?username=test&password=test");

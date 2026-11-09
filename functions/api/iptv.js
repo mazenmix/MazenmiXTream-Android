@@ -95,7 +95,7 @@ export async function onRequest({ request, env }) {
   }
 
   let upstream;
-  const headers = new Headers({ Accept: "*/*" });
+  const headers = new Headers({ Accept: "*/*", "Cache-Control": "no-store" });
   const range = request.headers.get("Range");
   if (range && /^bytes=\d*-\d*$/.test(range)) headers.set("Range", range);
 
@@ -107,7 +107,8 @@ export async function onRequest({ request, env }) {
         method: "GET",
         headers,
         redirect: "manual",
-        cache: "no-store",
+        // Older Pages compatibility dates reject RequestInit.cache before
+        // sending a request. Use HTTP headers and cf cache settings instead.
         signal: controller.signal,
         cf: { cacheTtl: 0, cacheEverything: false }
       }); } finally { clearTimeout(timeout); }
